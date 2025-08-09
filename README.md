@@ -282,17 +282,6 @@ For production deployment:
 4. Build the application: `npm run build`
 5. Start with: `npm start`
 
-## 📝 Additional Notes
-
-- **Auto-Incrementing IDs**: Students get S001, S002... and Teachers get T001, T002...
-- **Profile Editing**: All users can edit their personal information
-- **Responsive Design**: Works on desktop, tablet, and mobile devices
-- **Modern UI**: Clean, professional interface with consistent color scheme
-
-## 🤝 Support
-
-For technical support or questions about the system, please refer to the troubleshooting section above or contact the development team.
-
 ---
 
 **EduManage** - Streamlining Education Management © 2025
