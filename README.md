@@ -6,16 +6,6 @@ A comprehensive education management system built with Next.js, featuring role-b
 
 EduManage is a full-stack web application designed to streamline academic processes for educational institutions. It provides role-based access for Admins, Teachers, and Students with complete CRUD functionality.
 
-### ✨ Key Features
-
-- **Role-Based Authentication** (Admin, Teacher, Student)
-- **Student Management** (Add/Edit/Delete by Admin)
-- **Teacher Management** (Add/Edit/Delete by Admin)
-- **Profile Management** (Edit personal information)
-- **Auto-Incrementing IDs** (S001, T001 format)
-- **Modern UI Design** with Tailwind CSS
-- **Responsive Design** for all devices
-
 ## 🛠️ Technology Stack
 
 - **Frontend**: Next.js 15, React, TypeScript, Tailwind CSS
@@ -291,17 +281,6 @@ For production deployment:
 3. Configure proper environment variables
 4. Build the application: `npm run build`
 5. Start with: `npm start`
-
-## 📝 Additional Notes
-
-- **Auto-Incrementing IDs**: Students get S001, S002... and Teachers get T001, T002...
-- **Profile Editing**: All users can edit their personal information
-- **Responsive Design**: Works on desktop, tablet, and mobile devices
-- **Modern UI**: Clean, professional interface with consistent color scheme
-
-## 🤝 Support
-
-For technical support or questions about the system, please refer to the troubleshooting section above or contact the development team.
 
 ---
 
