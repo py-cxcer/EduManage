@@ -34,13 +34,30 @@ export default function ProfilePage() {
 
       try {
         const role = session.user.role.toLowerCase();
+        console.log("Fetching profile for:", {
+          userId: session.user.id,
+          username: session.user.username,
+          role: role,
+          url: `/api/${role}s/${session.user.id}`,
+        });
+
         const response = await fetch(`/api/${role}s/${session.user.id}`);
 
         if (response.ok) {
           const data = await response.json();
+          console.log("Profile data received:", data);
           setProfile(data);
+        } else if (response.status === 404) {
+          // Handle case where profile doesn't exist yet
+          console.log(
+            "Profile not found - user may need to complete profile setup"
+          );
         } else {
-          console.error("Failed to fetch profile");
+          console.error(
+            "Failed to fetch profile:",
+            response.status,
+            response.statusText
+          );
         }
       } catch (error) {
         console.error("Error fetching profile:", error);

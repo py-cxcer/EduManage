@@ -10,7 +10,7 @@ export default function DashboardLayout({
 }>) {
   return (
     <div className="h-screen flex overflow-hidden">
-      <div className="h-full overlflow-y-auto w-[14%] md:w-[8%] lg:w-[16%] xl:w-[14%] bg-[#EEEFE0] p-4">
+      <div className="h-full overflow-y-auto w-[14%] md:w-[8%] lg:w-[16%] xl:w-[14%] bg-[#EEEFE0] p-4">
         <Link
           href="/"
           className="flex items-center justify-center lg:justify-start gap-3"

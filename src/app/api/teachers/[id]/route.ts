@@ -2,16 +2,38 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../Model/prisma";
 
 async function resolveTeacherByParam(idOrUserId: string) {
+  console.log("Resolving teacher for param:", idOrUserId);
+
   // Try direct teacher ID first (e.g., T001)
   let teacher = await prisma.teacher.findUnique({ where: { id: idOrUserId } });
-  if (teacher) return teacher;
+  if (teacher) {
+    console.log("Found teacher by direct ID:", teacher.id);
+    return teacher;
+  }
 
   // Fallback: treat as a User ID and look up by username
+  console.log("Teacher not found by direct ID, trying User lookup...");
   const user = await prisma.user.findUnique({ where: { id: idOrUserId } });
-  if (!user) return null;
+  if (!user) {
+    console.log("User not found for ID:", idOrUserId);
+    return null;
+  }
+
+  console.log(
+    "Found user:",
+    user.username,
+    "looking for teacher with same username..."
+  );
   teacher = await prisma.teacher.findUnique({
     where: { username: user.username },
   });
+
+  if (teacher) {
+    console.log("Found teacher by username:", teacher.id);
+  } else {
+    console.log("No teacher found with username:", user.username);
+  }
+
   return teacher;
 }
 
@@ -55,6 +77,16 @@ export async function PUT(
     const { name, surname, email, phone, address, birthday, sex, bloodType } =
       body;
 
+    // Validate and normalize sex field
+    const validSexValues = ["MALE", "FEMALE", "OTHER"];
+    const normalizedSex = sex?.toString().toUpperCase();
+    if (!normalizedSex || !validSexValues.includes(normalizedSex)) {
+      return NextResponse.json(
+        { error: "Invalid sex value. Must be MALE, FEMALE, or OTHER." },
+        { status: 400 }
+      );
+    }
+
     // Resolve teacher ID from either T### or user cuid
     const existingTeacher = await resolveTeacherByParam(id);
     if (!existingTeacher) {
@@ -71,7 +103,7 @@ export async function PUT(
         phone: phone?.trim() || null,
         address,
         birthday: new Date(birthday),
-        sex: String(sex).toUpperCase() as any,
+        sex: normalizedSex as any, // Use validated and normalized sex
         bloodType,
       },
       include: {

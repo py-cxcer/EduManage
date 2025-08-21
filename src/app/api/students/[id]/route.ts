@@ -53,6 +53,16 @@ export async function PUT(
     const { name, surname, email, phone, address, birthday, sex, bloodType } =
       body;
 
+    // Validate and normalize sex field
+    const validSexValues = ["MALE", "FEMALE", "OTHER"];
+    const normalizedSex = sex?.toString().toUpperCase();
+    if (!normalizedSex || !validSexValues.includes(normalizedSex)) {
+      return NextResponse.json(
+        { error: "Invalid sex value. Must be MALE, FEMALE, or OTHER." },
+        { status: 400 }
+      );
+    }
+
     // Resolve student ID from either S### or user cuid
     const existingStudent = await resolveStudentByParam(id);
     if (!existingStudent) {
@@ -69,7 +79,7 @@ export async function PUT(
         phone: phone?.trim() || null,
         address,
         birthday: new Date(birthday),
-        sex: String(sex).toUpperCase() as any,
+        sex: normalizedSex as any, // Use validated and normalized sex
         bloodType,
       },
       include: {

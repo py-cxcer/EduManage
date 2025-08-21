@@ -64,6 +64,16 @@ export async function POST(request: NextRequest) {
       birthday,
     } = body;
 
+    // Validate and normalize sex field
+    const validSexValues = ["MALE", "FEMALE", "OTHER"];
+    const normalizedSex = sex?.toString().toUpperCase();
+    if (!normalizedSex || !validSexValues.includes(normalizedSex)) {
+      return NextResponse.json(
+        { error: "Invalid sex value. Must be MALE, FEMALE, or OTHER." },
+        { status: 400 }
+      );
+    }
+
     // Normalize optional unique fields
     const normalizedEmail = email && email.trim() !== "" ? email.trim() : null;
     const normalizedPhone = phone && phone.trim() !== "" ? phone.trim() : null;
@@ -104,7 +114,7 @@ export async function POST(request: NextRequest) {
           phone: normalizedPhone,
           address,
           bloodType,
-          sex,
+          sex: normalizedSex as any, // Use normalized sex value
           birthday: new Date(birthday),
         },
         include: {

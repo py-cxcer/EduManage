@@ -204,6 +204,7 @@ enum UserRole {
 enum UserSex {
   MALE
   FEMALE
+  OTHER
 }
 
 enum Day {

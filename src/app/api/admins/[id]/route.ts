@@ -3,10 +3,10 @@ import { prisma } from "../../../../Model/prisma";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
     console.log("Fetching admin with ID:", id);
 
     const admin = await prisma.admin.findUnique({
@@ -55,10 +55,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
     const body = await request.json();
     console.log("Updating admin with ID:", id, "Data:", body);
 

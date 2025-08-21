@@ -30,7 +30,7 @@ const TeacherFormSchema = z
       .string()
       .min(1, "Date of birth is required")
       .transform((val) => new Date(val)),
-    sex: z.enum(["male", "female", "other"], "Gender is required"),
+    sex: z.enum(["MALE", "FEMALE", "OTHER"], "Gender is required"),
     // image: z.union([z.instanceof(File), z.undefined()]).optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -196,13 +196,13 @@ const TeacherForm = ({
         <div className="flex flex-col gap-2 w-full md:w-1/4">
           <label className="text-xs text-gray-700">Gender</label>
           <select
-            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
+            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full text-black"
             {...register("sex")}
             defaultValue={data?.sex}
           >
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-            <option value="other">Other</option>
+            <option value="MALE">Male</option>
+            <option value="FEMALE">Female</option>
+            <option value="OTHER">Other</option>
           </select>
           {errors.sex?.message && (
             <p className="text-xs text-red-400">
