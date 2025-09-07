@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useSession } from "next-auth/react";
-import SignOutButton from "./SignOutButton";
 
 const Navbar = () => {
   const { data: session } = useSession();
@@ -24,13 +23,13 @@ const Navbar = () => {
 
   return (
     <div className="flex items-center justify-between p-4">
-      <div className="hidden md:flex items-center gap-1 tex-xs rouded-full ring-[1.5px] ring-gray-300 px-2">
-        <Image src="/search.png" alt="Search" width={14} height={14} />
+      <div className="hidden md:flex items-center gap-2 text-xs rounded-full ring-[1.5px] ring-gray-300 px-2">
+        {/* <Image src="/search.png" alt="Search" width={14} height={14} />
         <input
           type="text"
           placeholder="Search..."
           className="w-[200px] p-2 bg-white text-black rounded-full px-2 py-0.5 outline-none"
-        />
+        /> */}
       </div>
 
       <div className="flex items-center gap-6">
@@ -51,9 +50,6 @@ const Navbar = () => {
           height={36}
           className="rounded-full"
         />
-        <div className="hidden lg:block">
-          <SignOutButton />
-        </div>
       </div>
     </div>
   );

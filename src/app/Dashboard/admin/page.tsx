@@ -1,42 +1,45 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import ProtectedRoute from "../../../View/components/ProtectedRoute";
-import UserProfile from "../../../View/components/UserProfile";
+import UserCard from "@/View/components/UserCard";
+import CountChart from "@/View/components/CountChart";
+import AttendanceChart from "@/View/components/AttendanceChart";
+import FinanceChart from "@/View/components/FinanceChart";
+import CalendarComponent from "@/View/components/CalendarComponent";
+import Announcement from "@/View/components/Announcement";
 
 export default function AdminDashboardPage() {
-  const { data: session } = useSession();
-
   return (
     <ProtectedRoute requiredRole="ADMIN">
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">
-              Admin Dashboard
-            </h1>
-            <p className="mt-2 text-gray-600">
-              Welcome, {session?.user.username}! You have administrative
-              privileges.
-            </p>
+      <div className="p-4 flex gap-4 flex-col md:flex-row">
+        {/*Left*/}
+        <div className="w-full lg:w-2/3 flex flex-col gap-8">
+          {/*USER CARD*/}
+          <div className="flex gap-4 justify-between">
+            <UserCard type="student" />
+            <UserCard type="teacher" />
+            <UserCard type="parent" />
           </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2">
-              <div className="bg-white shadow rounded-lg p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                  Welcome to EduManage Admin Panel
-                </h2>
-                <p className="text-gray-600">
-                  You can manage teachers and students from the navigation menu.
-                </p>
-              </div>
+          {/* MIDDLE CHARTS */}
+          <div className="flex gap-4 flex-col lg:flex-row">
+            {/* COUNT CHART */}
+            <div className="w-full lg:w-1/3 h-[450px] bg-gray-50 rounded-xl p-4">
+              <CountChart />
             </div>
-
-            <div>
-              <UserProfile />
+            {/* ATTENDANCE CHART */}
+            <div className="w-full lg:w-2/3 h-[450px] bg-gray-50 rounded-xl p-4">
+              <AttendanceChart />
             </div>
           </div>
+          {/* BOTTOM CHARTS */}
+          <div className="w-full h-[500px]">
+            <FinanceChart />
+          </div>
+        </div>
+        {/* RIGHT */}
+        <div className="w-full lg:w-1/3 flex flex-col gap-8">
+          <CalendarComponent />
+          <Announcement />
         </div>
       </div>
     </ProtectedRoute>

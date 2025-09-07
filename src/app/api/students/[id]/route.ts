@@ -28,7 +28,15 @@ export async function GET(
 
     const student = await prisma.student.findUnique({
       where: { id: resolved.id },
-      include: { grade: true, parent: true, class: true },
+      include: {
+        grade: true,
+        parent: true,
+        class: {
+          include: {
+            grade: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json(student);
@@ -50,8 +58,18 @@ export async function PUT(
     const body = await request.json();
     console.log("Updating student with ID:", id, "Data:", body);
 
-    const { name, surname, email, phone, address, birthday, sex, bloodType } =
-      body;
+    const {
+      name,
+      surname,
+      email,
+      phone,
+      address,
+      birthday,
+      sex,
+      bloodType,
+      classId,
+      gradeId,
+    } = body;
 
     // Validate and normalize sex field
     const validSexValues = ["MALE", "FEMALE", "OTHER"];
@@ -69,6 +87,25 @@ export async function PUT(
       return NextResponse.json({ error: "Student not found" }, { status: 404 });
     }
 
+    // Validate class and grade if provided
+    if (classId && gradeId) {
+      const classExists = await prisma.class.findUnique({
+        where: { id: classId },
+        include: { grade: true },
+      });
+
+      if (!classExists) {
+        return NextResponse.json({ error: "Class not found" }, { status: 404 });
+      }
+
+      if (classExists.gradeId !== gradeId) {
+        return NextResponse.json(
+          { error: "Class does not belong to the selected grade" },
+          { status: 400 }
+        );
+      }
+    }
+
     // Update student profile
     const updatedStudent = await prisma.student.update({
       where: { id: existingStudent.id },
@@ -81,11 +118,17 @@ export async function PUT(
         birthday: new Date(birthday),
         sex: normalizedSex as any, // Use validated and normalized sex
         bloodType,
+        ...(classId && { classId }),
+        ...(gradeId && { gradeId }),
       },
       include: {
         grade: true,
         parent: true,
-        class: true,
+        class: {
+          include: {
+            grade: true,
+          },
+        },
       },
     });
 

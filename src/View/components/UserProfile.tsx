@@ -1,10 +1,12 @@
 "use client";
 
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import SignOutButton from "./SignOutButton";
 
 export default function UserProfile() {
   const { data: session } = useSession();
+  const router = useRouter();
 
   if (!session) {
     return null;
@@ -86,7 +88,32 @@ export default function UserProfile() {
         </dl>
       </div>
 
-      <div className="mt-6 flex justify-end">
+      <div className="mt-6 flex justify-between items-center">
+        {/* View Profile button for teachers */}
+        {session.user.role === "TEACHER" && (
+          <button
+            onClick={async () => {
+              try {
+                // Get the teacher ID from the user ID
+                const response = await fetch(
+                  `/api/teachers/by-user-id/${session.user.id}`
+                );
+                if (response.ok) {
+                  const data = await response.json();
+                  router.push(`/Dashboard/list/teachers/${data.teacherId}`);
+                } else {
+                  console.error("Failed to get teacher ID");
+                }
+              } catch (error) {
+                console.error("Error getting teacher ID:", error);
+              }
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm"
+          >
+            View My Profile
+          </button>
+        )}
+
         <SignOutButton />
       </div>
     </div>

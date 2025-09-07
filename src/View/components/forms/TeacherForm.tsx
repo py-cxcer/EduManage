@@ -4,6 +4,8 @@ import { error } from "console";
 import { useForm } from "react-hook-form";
 import { email, z } from "zod";
 import { InputField } from "@/View/components/InputField";
+import SubjectMultiSelect from "@/View/components/SubjectMultiSelect";
+import { useState } from "react";
 
 const TeacherFormSchema = z
   .object({
@@ -54,6 +56,7 @@ const TeacherForm = ({
   } = useForm({
     resolver: zodResolver(TeacherFormSchema),
   });
+  const [subjectIds, setSubjectIds] = useState<number[]>([] as number[]);
 
   const onSubmit = handleSubmit(async (Data) => {
     console.log("Submitting teacher data:", Data);
@@ -83,6 +86,7 @@ const TeacherForm = ({
         bloodType: "A+", // Default value
         sex: Data.sex?.toUpperCase() || "MALE",
         birthday: Data.birthday,
+        subjectIds: subjectIds,
       };
 
       const response = await fetch("/api/teachers", {
@@ -210,6 +214,10 @@ const TeacherForm = ({
             </p>
           )}
         </div>
+      </div>
+
+      <div className="flex justify-between gap-4 flex-wrap">
+        <SubjectMultiSelect value={subjectIds} onChange={setSubjectIds} />
       </div>
 
       <button className="bg-[#6B8A7A] text-white p-2 rounded-md">

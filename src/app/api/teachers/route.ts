@@ -24,13 +24,54 @@ async function getNextTeacherId(): Promise<string> {
 export async function GET(request: NextRequest) {
   try {
     console.log("Fetching all teachers");
+
+    // Get pagination and search parameters from URL
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "10");
+    const search = searchParams.get("search") || "";
+    const skip = (page - 1) * limit;
+
+    // Build search conditions
+    const searchConditions = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: "insensitive" as const } },
+            { surname: { contains: search, mode: "insensitive" as const } },
+            { id: { contains: search, mode: "insensitive" as const } },
+            { email: { contains: search, mode: "insensitive" as const } },
+            { phone: { contains: search, mode: "insensitive" as const } },
+          ],
+        }
+      : {};
+
+    // Get total count for pagination (with search filter)
+    const totalItems = await prisma.teacher.count({
+      where: searchConditions,
+    });
+    const totalPages = Math.ceil(totalItems / limit);
+
+    // Fetch paginated teachers (with search filter)
     const teachers = await prisma.teacher.findMany({
+      where: searchConditions,
       include: {
         subjects: true,
         classes: true,
       },
+      skip: skip,
+      take: limit,
+      orderBy: {
+        id: "asc",
+      },
     });
-    return NextResponse.json(teachers);
+
+    return NextResponse.json({
+      teachers,
+      totalItems,
+      totalPages,
+      currentPage: page,
+      itemsPerPage: limit,
+    });
   } catch (error) {
     console.error("Error fetching teachers:", error);
     return NextResponse.json(
@@ -62,6 +103,7 @@ export async function POST(request: NextRequest) {
       bloodType,
       sex,
       birthday,
+      subjectIds,
     } = body;
 
     // Validate and normalize sex field
@@ -116,6 +158,12 @@ export async function POST(request: NextRequest) {
           bloodType,
           sex: normalizedSex as any, // Use normalized sex value
           birthday: new Date(birthday),
+          subjects:
+            subjectIds && Array.isArray(subjectIds) && subjectIds.length
+              ? {
+                  connect: subjectIds.map((id: number) => ({ id })),
+                }
+              : undefined,
         },
         include: {
           subjects: true,

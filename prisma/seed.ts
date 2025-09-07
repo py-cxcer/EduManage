@@ -24,22 +24,29 @@ async function main() {
     });
   }
 
-  // CLASS
-  for (let i = 1; i <= 6; i++) {
-    await prisma.class.upsert({
-      where: { id: i },
-      create: {
-        id: i,
-        name: `Class ${i}`,
-        capacity: 30,
-        gradeId: (i % 10) + 1,
-      },
-      update: {
-        name: `Class ${i}`,
-        capacity: 30,
-        gradeId: (i % 10) + 1,
-      },
-    });
+  // CLASS - Create section-based classes (1A, 1B, 2A, 2B, etc.)
+  const sections = ["A", "B", "C"];
+  let classId = 1;
+
+  for (let grade = 1; grade <= 6; grade++) {
+    for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
+      const section = sections[sectionIndex];
+      await prisma.class.upsert({
+        where: { id: classId },
+        create: {
+          id: classId,
+          name: section,
+          capacity: 30,
+          gradeId: grade,
+        },
+        update: {
+          name: section,
+          capacity: 30,
+          gradeId: grade,
+        },
+      });
+      classId++;
+    }
   }
 
   // SUBJECT
@@ -78,7 +85,7 @@ async function main() {
         bloodType: "A+",
         sex: i % 2 === 0 ? UserSex.MALE : UserSex.FEMALE,
         subjects: { connect: [{ id: (i % 10) + 1 }] },
-        classes: { connect: [{ id: (i % 6) + 1 }] },
+        classes: { connect: [{ id: (i % 18) + 1 }] }, // Updated to work with 18 classes (6 grades × 3 sections)
         birthday: new Date(
           new Date().setFullYear(new Date().getFullYear() - 30)
         ),
@@ -114,7 +121,7 @@ async function main() {
         startTime: new Date(new Date().setHours(new Date().getHours() + 1)),
         endTime: new Date(new Date().setHours(new Date().getHours() + 3)),
         subjectId: (i % 10) + 1,
-        classId: (i % 6) + 1,
+        classId: (i % 18) + 1, // Updated to work with 18 classes (6 grades × 3 sections)
         teacherId: `T${String((i % 6) + 1).padStart(3, "0")}`,
       },
       update: {
@@ -127,7 +134,7 @@ async function main() {
         startTime: new Date(new Date().setHours(new Date().getHours() + 1)),
         endTime: new Date(new Date().setHours(new Date().getHours() + 3)),
         subjectId: (i % 10) + 1,
-        classId: (i % 6) + 1,
+        classId: (i % 18) + 1, // Updated to work with 18 classes (6 grades × 3 sections)
         teacherId: `T${String((i % 6) + 1).padStart(3, "0")}`,
       },
     });
@@ -172,7 +179,7 @@ async function main() {
         bloodType: "A+",
         sex: i % 2 === 0 ? UserSex.MALE : UserSex.FEMALE,
         parentId: `parentId${(i % 5) + 1}`,
-        classId: (i % 6) + 1,
+        classId: (i % 18) + 1, // Updated to work with 18 classes (6 grades × 3 sections)
         gradeId: (i % 10) + 1,
         birthday: new Date(
           new Date().setFullYear(new Date().getFullYear() - 15)
@@ -188,7 +195,7 @@ async function main() {
         bloodType: "A+",
         sex: i % 2 === 0 ? UserSex.MALE : UserSex.FEMALE,
         parentId: `parentId${(i % 5) + 1}`,
-        classId: (i % 6) + 1,
+        classId: (i % 18) + 1, // Updated to work with 18 classes (6 grades × 3 sections)
         gradeId: (i % 10) + 1,
         birthday: new Date(
           new Date().setFullYear(new Date().getFullYear() - 15)
@@ -199,19 +206,23 @@ async function main() {
 
   // EXAM
   for (let i = 1; i <= 10; i++) {
+    // Create fixed dates for exams (September 2025)
+    const examDate = new Date(2025, 8, 15 + i, 9, 0, 0); // September 15-25, 2025, 9:00 AM
+    const endDate = new Date(2025, 8, 15 + i, 11, 0, 0); // September 15-25, 2025, 11:00 AM
+
     await prisma.exam.upsert({
       where: { id: i },
       create: {
         id: i,
         title: `Exam ${i}`,
-        startTime: new Date(new Date().setHours(new Date().getHours() + 1)),
-        endTime: new Date(new Date().setHours(new Date().getHours() + 2)),
+        startTime: examDate,
+        endTime: endDate,
         lessonId: (i % 10) + 1,
       },
       update: {
         title: `Exam ${i}`,
-        startTime: new Date(new Date().setHours(new Date().getHours() + 1)),
-        endTime: new Date(new Date().setHours(new Date().getHours() + 2)),
+        startTime: examDate,
+        endTime: endDate,
         lessonId: (i % 10) + 1,
       },
     });
@@ -219,19 +230,23 @@ async function main() {
 
   // ASSIGNMENT
   for (let i = 1; i <= 10; i++) {
+    // Create fixed dates for assignments (October 2025)
+    const startDate = new Date(2025, 9, 1 + i, 8, 0, 0); // October 2-11, 2025, 8:00 AM
+    const dueDate = new Date(2025, 9, 8 + i, 16, 0, 0); // October 9-18, 2025, 4:00 PM
+
     await prisma.assignment.upsert({
       where: { id: i },
       create: {
         id: i,
         title: `Assignment ${i}`,
-        startDate: new Date(new Date().setHours(new Date().getHours() + 1)),
-        dueDate: new Date(new Date().setDate(new Date().getDate() + 1)),
+        startDate: startDate,
+        dueDate: dueDate,
         lessonId: (i % 10) + 1,
       },
       update: {
         title: `Assignment ${i}`,
-        startDate: new Date(new Date().setHours(new Date().getHours() + 1)),
-        dueDate: new Date(new Date().setDate(new Date().getDate() + 1)),
+        startDate: startDate,
+        dueDate: dueDate,
         lessonId: (i % 10) + 1,
       },
     });
@@ -285,14 +300,14 @@ async function main() {
         description: `Description for Event ${i}`,
         startTime: new Date(new Date().setHours(new Date().getHours() + 1)),
         endTime: new Date(new Date().setHours(new Date().getHours() + 2)),
-        classId: (i % 5) + 1,
+        classId: (i % 18) + 1, // Updated to work with 18 classes (6 grades × 3 sections)
       },
       update: {
         title: `Event ${i}`,
         description: `Description for Event ${i}`,
         startTime: new Date(new Date().setHours(new Date().getHours() + 1)),
         endTime: new Date(new Date().setHours(new Date().getHours() + 2)),
-        classId: (i % 5) + 1,
+        classId: (i % 18) + 1, // Updated to work with 18 classes (6 grades × 3 sections)
       },
     });
   }
@@ -306,13 +321,13 @@ async function main() {
         title: `Announcement ${i}`,
         description: `Description for Announcement ${i}`,
         date: new Date(),
-        classId: (i % 5) + 1,
+        classId: (i % 18) + 1, // Updated to work with 18 classes (6 grades × 3 sections)
       },
       update: {
         title: `Announcement ${i}`,
         description: `Description for Announcement ${i}`,
         date: new Date(),
-        classId: (i % 5) + 1,
+        classId: (i % 18) + 1, // Updated to work with 18 classes (6 grades × 3 sections)
       },
     });
   }

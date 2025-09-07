@@ -4,6 +4,7 @@ import { error } from "console";
 import { useForm } from "react-hook-form";
 import { email, z } from "zod";
 import { InputField } from "@/View/components/InputField";
+import { useState, useEffect } from "react";
 
 const StudentFormSchema = z
   .object({
@@ -31,12 +32,28 @@ const StudentFormSchema = z
       .min(1, "Date of birth is required")
       .transform((val) => new Date(val)),
     sex: z.enum(["MALE", "FEMALE", "OTHER"], "Gender is required"),
+    classId: z.string().min(1, "Class is required"),
+    gradeId: z.string().min(1, "Grade is required"),
     // image: z.union([z.instanceof(File), z.undefined()]).optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
     path: ["confirmPassword"],
   });
+
+type ClassOption = {
+  id: number;
+  name: string;
+  gradeId: number;
+  grade: {
+    level: number;
+  };
+};
+
+type GradeOption = {
+  id: number;
+  level: number;
+};
 
 const StudentForm = ({
   type,
@@ -47,29 +64,114 @@ const StudentForm = ({
   data?: any;
   onSuccess?: () => void;
 }) => {
+  const [classes, setClasses] = useState<ClassOption[]>([]);
+  const [grades, setGrades] = useState<GradeOption[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [classesLoading, setClassesLoading] = useState(true);
+  const [gradesLoading, setGradesLoading] = useState(true);
+
   const {
     register,
     handleSubmit,
     formState: { errors },
+    setValue,
+    watch,
   } = useForm({
     resolver: zodResolver(StudentFormSchema),
   });
 
+  const selectedGradeId = watch("gradeId");
+
+  // Load grades for the dropdown
+  useEffect(() => {
+    const fetchGrades = async () => {
+      try {
+        const response = await fetch("/api/grades");
+        const data = await response.json();
+        setGrades(data.grades || data);
+      } catch (error) {
+        console.error("Error fetching grades:", error);
+      } finally {
+        setGradesLoading(false);
+      }
+    };
+
+    fetchGrades();
+  }, []);
+
+  // Load classes for the dropdown
+  useEffect(() => {
+    const fetchClasses = async () => {
+      try {
+        const response = await fetch("/api/classes");
+        const data = await response.json();
+        setClasses(data.classes || data);
+      } catch (error) {
+        console.error("Error fetching classes:", error);
+      } finally {
+        setClassesLoading(false);
+      }
+    };
+
+    fetchClasses();
+  }, []);
+
+  // Load student data for update
+  useEffect(() => {
+    if (type === "update" && data) {
+      if (data.name) {
+        // We have full student data
+        setValue("username", data.username || "");
+        setValue("email", data.email || "");
+        setValue("firstName", data.name || "");
+        setValue("lastName", data.surname || "");
+        setValue("phone", data.phone || "");
+        setValue("address", data.address || "");
+        setValue(
+          "birthday",
+          data.birthday
+            ? new Date(data.birthday).toISOString().slice(0, 10)
+            : ""
+        );
+        setValue("sex", data.sex || "MALE");
+        setValue("classId", data.classId?.toString() || "");
+        setValue("gradeId", data.gradeId?.toString() || "");
+      } else if (data.id) {
+        // We only have the ID, fetch the full student data
+        const fetchStudentData = async () => {
+          try {
+            const response = await fetch(`/api/students/${data.id}`);
+            const studentData = await response.json();
+            if (response.ok) {
+              setValue("username", studentData.username || "");
+              setValue("email", studentData.email || "");
+              setValue("firstName", studentData.name || "");
+              setValue("lastName", studentData.surname || "");
+              setValue("phone", studentData.phone || "");
+              setValue("address", studentData.address || "");
+              setValue(
+                "birthday",
+                studentData.birthday
+                  ? new Date(studentData.birthday).toISOString().slice(0, 10)
+                  : ""
+              );
+              setValue("sex", studentData.sex || "MALE");
+              setValue("classId", studentData.classId?.toString() || "");
+              setValue("gradeId", studentData.gradeId?.toString() || "");
+            }
+          } catch (error) {
+            console.error("Error fetching student data:", error);
+          }
+        };
+        fetchStudentData();
+      }
+    }
+  }, [type, data, setValue]);
+
   const onSubmit = handleSubmit(async (Data) => {
     console.log("Submitting student data:", Data);
 
-    // Basic validation
-    if (
-      !Data.username ||
-      !Data.password ||
-      !Data.firstName ||
-      !Data.lastName ||
-      !Data.email
-    ) {
-      alert("Please fill in all required fields");
-      return;
-    }
-
+    setLoading(true);
     try {
       // Transform the data to match API expectations
       const apiData = {
@@ -84,12 +186,16 @@ const StudentForm = ({
         sex: Data.sex?.toUpperCase() || "MALE",
         birthday: Data.birthday,
         parentId: "defaultParent", // Default value
-        classId: 1, // Default value
-        gradeId: 1, // Default value
+        classId: parseInt(Data.classId),
+        gradeId: parseInt(Data.gradeId),
       };
 
-      const response = await fetch("/api/students", {
-        method: "POST",
+      const url =
+        type === "create" ? "/api/students" : `/api/students/${data.id}`;
+      const method = type === "create" ? "POST" : "PUT";
+
+      const response = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
         },
@@ -100,22 +206,39 @@ const StudentForm = ({
       console.log("API response:", result);
 
       if (response.ok) {
-        alert("Student created successfully!");
-        // Call the success callback to close modal and refresh
+        alert(
+          `${
+            type === "create" ? "Student created" : "Student updated"
+          } successfully!`
+        );
         onSuccess?.();
       } else {
         alert(`Error: ${result.error}`);
       }
     } catch (error) {
-      console.error("Error creating student:", error);
-      alert("Failed to create student. Please try again.");
+      console.error(
+        `Error ${type === "create" ? "creating" : "updating"} student:`,
+        error
+      );
+      alert(
+        `Failed to ${
+          type === "create" ? "create" : "update"
+        } student. Please try again.`
+      );
+    } finally {
+      setLoading(false);
     }
   });
+
+  // Filter classes based on selected grade
+  const filteredClasses = classes.filter(
+    (cls) => !selectedGradeId || cls.gradeId === parseInt(selectedGradeId)
+  );
 
   return (
     <form className="flex flex-col gap-8" onSubmit={onSubmit}>
       <h1 className="text-xl font-semibold text-gray-700 ">
-        Create a new Student
+        {type === "create" ? "Create a new Student" : "Update Student"}
       </h1>
       <span className="text-xs text-gray-500 font-semibold font-medium">
         Authentication Information
@@ -215,8 +338,95 @@ const StudentForm = ({
         </div>
       </div>
 
-      <button className="bg-[#6B8A7A] text-white p-2 rounded-md">
-        {type === "create" ? "Create Student" : "Update Student"}
+      <span className="text-xs text-gray-500 font-semibold font-medium">
+        Academic Information
+      </span>
+      <div className="flex justify-between gap-4 flex-wrap">
+        <div className="flex flex-col gap-2 w-full md:w-1/2">
+          <label className="text-xs text-gray-700">Grade *</label>
+          {gradesLoading ? (
+            <div className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full text-black bg-gray-100">
+              Loading grades...
+            </div>
+          ) : (
+            <select
+              className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full text-black"
+              {...register("gradeId")}
+            >
+              <option value="">Select a grade</option>
+              {grades.map((grade) => (
+                <option key={grade.id} value={grade.id}>
+                  Grade {grade.level}
+                </option>
+              ))}
+            </select>
+          )}
+          {errors.gradeId?.message && (
+            <p className="text-xs text-red-400">
+              {errors.gradeId.message.toString()}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2 w-full md:w-1/2">
+          <label className="text-xs text-gray-700">Class Section *</label>
+          {classesLoading ? (
+            <div className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full text-black bg-gray-100">
+              Loading classes...
+            </div>
+          ) : (
+            <select
+              className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full text-black"
+              {...register("classId")}
+              disabled={!selectedGradeId}
+            >
+              <option value="">Select a class section</option>
+              {filteredClasses.map((cls) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.grade.level}
+                  {cls.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {errors.classId?.message && (
+            <p className="text-xs text-red-400">
+              {errors.classId.message.toString()}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {selectedGradeId && filteredClasses.length > 0 && (
+        <div className="bg-gray-50 p-3 rounded-md">
+          <h4 className="font-medium text-gray-700 mb-2">
+            Selected Class Details:
+          </h4>
+          <div className="text-sm text-gray-600 space-y-1">
+            <p>
+              <strong>Grade:</strong>{" "}
+              {grades.find((g) => g.id === parseInt(selectedGradeId))?.level}
+            </p>
+            <p>
+              <strong>Available Sections:</strong>{" "}
+              {filteredClasses
+                .map((cls) => `${cls.grade.level}${cls.name}`)
+                .join(", ")}
+            </p>
+          </div>
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="bg-[#6B8A7A] text-white p-2 rounded-md disabled:opacity-50"
+      >
+        {loading
+          ? "Saving..."
+          : type === "create"
+          ? "Create Student"
+          : "Update Student"}
       </button>
     </form>
   );

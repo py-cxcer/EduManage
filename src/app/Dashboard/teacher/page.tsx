@@ -1,21 +1,24 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import ProtectedRoute from "../../../View/components/ProtectedRoute";
 
-export default function TeacherPage() {
-  const { data: session } = useSession();
+import Announcement from "@/View/components/Announcement";
+import ScheduleCalendar from "@/View/components/ScheduleCalendar";
 
+export default function TeacherPage() {
   return (
     <ProtectedRoute requiredRole="TEACHER">
-      <div className="p-6 min-h-screen bg-[#D7DEC3]">
-        <div className="bg-white rounded-xl shadow-sm p-8 text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Welcome back, {session?.user?.username}!
-          </h1>
-          <p className="text-xl text-gray-600">
-            You are logged in as a Teacher.
-          </p>
+      <div className="flex-1 p-4 flex gap-4 flex-col xl:flex-row">
+        {/* LEFT */}
+        <div className="w-full xl:w-2/3">
+          <div className="h-full bg-white p-4 rounded-md">
+            <h1 className="text-xl font-semibold text-gray-400">Schedule</h1>
+            <ScheduleCalendar />
+          </div>
+        </div>
+        {/* RIGHT */}
+        <div className="w-full xl:w-1/3 flex flex-col gap-8">
+          <Announcement />
         </div>
       </div>
     </ProtectedRoute>

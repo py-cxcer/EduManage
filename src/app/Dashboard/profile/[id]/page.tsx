@@ -21,7 +21,7 @@ interface UserProfile {
   class?: { name: string };
   parent?: { name: string; surname: string };
   subjects?: Array<{ name: string }>;
-  classes?: Array<{ name: string }>;
+  classes?: Array<{ name: string; grade?: { level: number } }>;
 }
 
 export default function UserProfilePage() {
@@ -219,10 +219,11 @@ export default function UserProfilePage() {
                         {profile.class && (
                           <div>
                             <label className="text-sm font-medium text-gray-500">
-                              Class
+                              Class Section
                             </label>
                             <p className="text-gray-900">
-                              {profile.class.name}
+                              {profile.grade?.level || "N/A"}
+                              {profile.class?.name || ""}
                             </p>
                           </div>
                         )}
@@ -258,7 +259,9 @@ export default function UserProfilePage() {
                               Classes
                             </label>
                             <p className="text-gray-900">
-                              {profile.classes.map((c) => c.name).join(", ")}
+                              {profile.classes
+                                .map((c) => `${c.grade?.level || ""}${c.name}`)
+                                .join(", ")}
                             </p>
                           </div>
                         )}

@@ -209,7 +209,7 @@ export default function SignupForm() {
               >
                 <option value="STUDENT">Student</option>
                 <option value="TEACHER">Teacher</option>
-                {/* <option value="PARENT">Parent</option> */}
+                <option value="PARENT">Parent</option>
                 <option value="ADMIN">Admin</option>
               </select>
             </div>

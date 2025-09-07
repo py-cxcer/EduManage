@@ -52,7 +52,14 @@ export async function GET(
 
     const teacher = await prisma.teacher.findUnique({
       where: { id: resolved.id },
-      include: { subjects: true, classes: true },
+      include: {
+        subjects: true,
+        classes: {
+          include: {
+            grade: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json(teacher);
@@ -74,8 +81,18 @@ export async function PUT(
     const body = await request.json();
     console.log("Updating teacher with ID:", id, "Data:", body);
 
-    const { name, surname, email, phone, address, birthday, sex, bloodType } =
-      body;
+    const {
+      name,
+      surname,
+      email,
+      phone,
+      address,
+      birthday,
+      sex,
+      bloodType,
+      classIds,
+      subjectIds,
+    } = body;
 
     // Validate and normalize sex field
     const validSexValues = ["MALE", "FEMALE", "OTHER"];
@@ -105,10 +122,31 @@ export async function PUT(
         birthday: new Date(birthday),
         sex: normalizedSex as any, // Use validated and normalized sex
         bloodType,
+        // Sync many-to-many relations
+        subjects: Array.isArray(subjectIds)
+          ? {
+              set: [],
+              connect: subjectIds
+                .filter((n: any) => Number.isFinite(n))
+                .map((id: number) => ({ id })),
+            }
+          : undefined,
+        classes: Array.isArray(classIds)
+          ? {
+              set: [],
+              connect: classIds
+                .filter((n: any) => Number.isFinite(n))
+                .map((id: number) => ({ id })),
+            }
+          : undefined,
       },
       include: {
         subjects: true,
-        classes: true,
+        classes: {
+          include: {
+            grade: true,
+          },
+        },
       },
     });
 

@@ -47,6 +47,7 @@ model Student {
   grade       Grade        @relation(fields: [gradeId], references: [id])
   attendances Attendance[]
   results     Result[]
+  payments    Payment[]
   birthday    DateTime
 }
 
@@ -64,6 +65,7 @@ model Teacher {
   createdAt DateTime  @default(now())
   subjects  Subject[]
   lessons   Lesson[]
+  assignments Assignment[]
   classes   Class[]
   birthday  DateTime
 }
@@ -90,17 +92,22 @@ model Grade {
 
 model Class {
   id       Int    @id @default(autoincrement())
-  name     String @unique
+  name     String
   capacity Int
 
   supervisorId  String?
   supervisor    Teacher?       @relation(fields: [supervisorId], references: [id])
-  lessons       Lesson[]
+  lessons       Lesson[]       // Keep for backward compatibility
+  lessonClasses Lesson[]       @relation("LessonClass")
   students      Student[]
   gradeId       Int
   grade         Grade          @relation(fields: [gradeId], references: [id])
   events        Event[]
   announcements Announcement[]
+  assignments   Assignment[]
+  exams         Exam[]
+
+  @@unique([gradeId, name])
 }
 
 model Subject {
@@ -108,19 +115,17 @@ model Subject {
   name     String    @unique
   teachers Teacher[]
   lessons  Lesson[]
+  assignments Assignment[]
 }
 
 model Lesson {
   id        Int      @id @default(autoincrement())
-  name      String
-  day       Day
-  startTime DateTime
-  endTime   DateTime
 
   subjectId   Int
   subject     Subject      @relation(fields: [subjectId], references: [id])
-  classId     Int
-  class       Class        @relation(fields: [classId], references: [id])
+  classId     Int?         // Keep for backward compatibility during migration
+  class       Class?       @relation(fields: [classId], references: [id])
+  classes     Class[]      @relation("LessonClass")
   teacherId   String
   teacher     Teacher      @relation(fields: [teacherId], references: [id])
   exams       Exam[]
@@ -136,6 +141,9 @@ model Exam {
 
   lessonId Int
   lesson   Lesson   @relation(fields: [lessonId], references: [id])
+  // Optional: scope exam to a single class when a lesson spans multiple classes
+  classId  Int?
+  class    Class?   @relation(fields: [classId], references: [id])
   results  Result[]
 }
 
@@ -145,8 +153,20 @@ model Assignment {
   startDate DateTime
   dueDate   DateTime
 
+  // Some databases still have a NOT NULL classId column from earlier versions.
+  // Keep classId mapped here to satisfy the constraint and point it to one of the lesson's classes.
+  classId Int
+  class   Class   @relation(fields: [classId], references: [id])
+
+  // Some databases still have a NOT NULL subjectId column from earlier versions.
+  // Map it and keep it in sync with the selected lesson's subject.
+  subjectId Int
+  subject   Subject @relation(fields: [subjectId], references: [id])
+
   lessonId Int
   lesson   Lesson   @relation(fields: [lessonId], references: [id])
+  teacherId String
+  teacher   Teacher  @relation(fields: [teacherId], references: [id])
   results  Result[]
 }
 
@@ -192,6 +212,23 @@ model Announcement {
 
   classId Int?
   class   Class? @relation(fields: [classId], references: [id])
+}
+
+model Payment {
+  id        Int          @id @default(autoincrement())
+  amount    Int
+  paidAt    DateTime?
+  status    PaymentStatus @default(NOT_PAID)
+
+  studentId String
+  student   Student       @relation(fields: [studentId], references: [id])
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+enum PaymentStatus {
+  PAID
+  NOT_PAID
 }
 
 enum UserRole {

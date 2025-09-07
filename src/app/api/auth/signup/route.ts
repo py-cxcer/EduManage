@@ -33,7 +33,16 @@ async function getNextStudentId(): Promise<string> {
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, password, role } = await request.json();
+    const {
+      username,
+      password,
+      role,
+      studentIds,
+      name,
+      surname,
+      phone,
+      address,
+    } = await request.json();
 
     // Validate input
     if (!username || !password || !role) {
@@ -140,6 +149,31 @@ export async function POST(request: NextRequest) {
             gradeId: grade.id,
           },
         });
+      } else if (upperRole === "PARENT") {
+        // Create parent profile and optionally assign selected students to this parent
+        const parentId = user.id; // align parent id with user id for consistency
+        const phoneValue =
+          typeof phone === "string" && phone.trim() !== ""
+            ? phone.trim()
+            : `P-${username}-${Date.now()}`; // ensure non-null & unique
+        const parent = await tx.parent.create({
+          data: {
+            id: parentId,
+            username: user.username,
+            name: (name as string) || "",
+            surname: (surname as string) || "",
+            email: null,
+            phone: phoneValue,
+            address: (address as string) || "Not set",
+          },
+        });
+
+        if (Array.isArray(studentIds) && studentIds.length > 0) {
+          await tx.student.updateMany({
+            where: { id: { in: studentIds } },
+            data: { parentId: parent.id },
+          });
+        }
       }
 
       const { password: _pw, ...userWithoutPassword } = user as any;

@@ -6,8 +6,10 @@ import TableSearch from "@/View/components/TableSearch";
 import Image from "next/image";
 import Table from "@/View/components/Table";
 import ActionForm from "@/View/components/ActionForm";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Grade, Student } from "@prisma/client";
+import Pagination from "@/View/components/Pagination";
 
 const columns = [
   {
@@ -40,10 +42,21 @@ const columns = [
   },
 ];
 
-type StudentInfo = Student & { grade: Grade };
+type StudentInfo = Student & {
+  grade: Grade;
+  class: {
+    id: number;
+    name: string;
+    gradeId: number;
+    grade: {
+      level: number;
+    };
+  };
+};
 
 const StudentRow = ({ item }: { item: StudentInfo }) => {
   const { data: session } = useSession();
+  const router = useRouter();
   const isAdmin = session?.user?.role === "ADMIN";
 
   return (
@@ -67,17 +80,20 @@ const StudentRow = ({ item }: { item: StudentInfo }) => {
         </div>
       </td>
       <td className="hidden md:table-cell text-gray-500">{item.id}</td>
-      <td className="hidden md:table-cell text-gray-500">{item.grade.level}</td>
+      <td className="hidden md:table-cell text-gray-500">
+        {item.class?.grade?.level || "N/A"}
+        {item.class?.name || ""}
+      </td>
       <td className="hidden md:table-cell text-gray-500">{item.phone}</td>
       <td className="hidden md:table-cell text-gray-500">{item.address}</td>
       <td className="">
         <div className="flex items-center gap-2">
           {isAdmin && (
             <>
-              {/* Middle icon now opens profile */}
+              <ActionForm table="Student" type="update" id={item.id} />
               <button
                 onClick={() =>
-                  window.open(`/Dashboard/profile/${item.id}`, "_blank")
+                  router.push(`/Dashboard/list/students/${item.id}`)
                 }
                 className="w-7 h-7 flex items-center justify-center rounded-full bg-[#F5ECD5]"
                 title="View Profile"
@@ -102,14 +118,62 @@ const StudentList = () => {
   const { data: session } = useSession();
   const [students, setStudents] = useState<StudentInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [grades, setGrades] = useState<{ id: number; level: number }[]>([]);
+  const [classes, setClasses] = useState<
+    { id: number; label: string; gradeId: number }[]
+  >([]);
+  const [gradeId, setGradeId] = useState<number | "">("");
+  const [classId, setClassId] = useState<number | "">("");
+  const [filterOpen, setFilterOpen] = useState(false);
   const isAdmin = session?.user?.role === "ADMIN";
+  const itemsPerPage = 7;
+
+  useEffect(() => {
+    // load filter options
+    const loadMeta = async () => {
+      try {
+        const [gRes, cRes] = await Promise.all([
+          fetch("/api/grades"),
+          fetch("/api/classes"),
+        ]);
+        const [gJson, cJson] = await Promise.all([gRes.json(), cRes.json()]);
+        const g = Array.isArray(gJson) ? gJson : gJson.grades || [];
+        const c = (cJson.classes || cJson || []).map((x: any) => ({
+          id: x.id,
+          label: `${x.grade?.level ?? ""}${x.name}`,
+          gradeId: x.grade?.id ?? x.gradeId,
+        }));
+        setGrades(g);
+        setClasses(c);
+      } catch (e) {
+        console.error("Failed to load grade/class options", e);
+      }
+    };
+    loadMeta();
+  }, []);
 
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const response = await fetch("/api/students");
+        const searchParam = searchTerm
+          ? `&search=${encodeURIComponent(searchTerm)}`
+          : "";
+        const gradeParam = gradeId ? `&gradeId=${gradeId}` : "";
+        const classParam = classId ? `&classId=${classId}` : "";
+        const response = await fetch(
+          `/api/students?page=${currentPage}&limit=${itemsPerPage}${searchParam}${gradeParam}${classParam}`
+        );
         const data = await response.json();
-        setStudents(data);
+        setStudents(data.students || data);
+        setTotalPages(
+          data.totalPages ||
+            Math.ceil((data.students || data).length / itemsPerPage)
+        );
+        setTotalItems(data.totalItems || (data.students || data).length);
       } catch (error) {
         console.error("Error fetching students:", error);
       } finally {
@@ -118,7 +182,22 @@ const StudentList = () => {
     };
 
     fetchStudents();
-  }, []);
+  }, [currentPage, searchTerm, gradeId, classId]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    setLoading(true);
+  };
+
+  const handleSearch = useCallback(
+    (term: string) => {
+      if (term === searchTerm) return;
+      setSearchTerm(term);
+      setCurrentPage(1); // Reset to first page when searching
+      setLoading(true);
+    },
+    [searchTerm]
+  );
 
   const rowData = (item: StudentInfo) => (
     <StudentRow key={item.id} item={item} />
@@ -143,11 +222,96 @@ const StudentList = () => {
             All Students' Information
           </h1>
           <div className="flex flex-col md:flex-row items-center gap-4 text-gray-500 w-full md:w-auto">
-            <TableSearch />
+            <TableSearch
+              onSearch={handleSearch}
+              placeholder="Search students..."
+              ignoreEmpty={false}
+            />
             <div className="flex items-center gap-4 self-end">
-              <button className="w-8 h-8 flex items-center justify-center rounded-full bg-[#FFF2C2]">
-                <Image src="/filter.png" alt="" width={14} height={14} />
-              </button>
+              <div className="relative">
+                <button
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-[#FFF2C2]"
+                  onClick={() => setFilterOpen((s) => !s)}
+                  title="Filter"
+                >
+                  <Image src="/filter.png" alt="" width={14} height={14} />
+                </button>
+                {filterOpen && (
+                  <div className="absolute right-0 mt-2 w-60 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                    <div className="p-3 space-y-3">
+                      <div>
+                        <div className="text-xs text-gray-600 mb-1">Grade</div>
+                        <select
+                          value={gradeId}
+                          onChange={(e) => {
+                            const val = e.target.value
+                              ? parseInt(e.target.value)
+                              : ("" as any);
+                            setGradeId(val);
+                            // if grade changes and current class not in grade, reset
+                            setClassId("");
+                            setCurrentPage(1);
+                            setLoading(true);
+                          }}
+                          className="w-full p-2 text-sm ring-[1.5px] ring-gray-300 rounded-md bg-white"
+                        >
+                          <option value="">All Grades</option>
+                          {grades.map((g) => (
+                            <option key={g.id} value={g.id}>
+                              {g.level}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-600 mb-1">Class</div>
+                        <select
+                          value={classId}
+                          onChange={(e) => {
+                            setClassId(
+                              e.target.value
+                                ? parseInt(e.target.value)
+                                : ("" as any)
+                            );
+                            setCurrentPage(1);
+                            setLoading(true);
+                          }}
+                          className="w-full p-2 text-sm ring-[1.5px] ring-gray-300 rounded-md bg-white"
+                        >
+                          <option value="">All Classes</option>
+                          {classes
+                            .filter((c) => !gradeId || c.gradeId === gradeId)
+                            .map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.label}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setGradeId("");
+                            setClassId("");
+                            setCurrentPage(1);
+                            setLoading(true);
+                            setFilterOpen(false);
+                          }}
+                          className="px-2 py-1 text-xs text-gray-600 border border-gray-300 rounded"
+                        >
+                          Reset
+                        </button>
+                        <button
+                          onClick={() => setFilterOpen(false)}
+                          className="px-2 py-1 text-xs bg-[#6B8A7A] text-white rounded"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
               <button className="w-8 h-8 flex items-center justify-center rounded-full bg-[#FFF2C2]">
                 <Image src="/sort.png" alt="" width={14} height={14} />
               </button>
@@ -156,6 +320,13 @@ const StudentList = () => {
           </div>
         </div>
         <Table columns={columns} rowData={rowData} data={students} />
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+        />
       </div>
     </ProtectedRoute>
   );

@@ -29,14 +29,60 @@ async function getNextStudentId(): Promise<string> {
 export async function GET(request: NextRequest) {
   try {
     console.log("Fetching all students");
+
+    // Get pagination and search parameters from URL
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "10");
+    const search = searchParams.get("search") || "";
+    const gradeIdParam = searchParams.get("gradeId");
+    const classIdParam = searchParams.get("classId");
+    const skip = (page - 1) * limit;
+
+    // Build filter + search conditions
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { name: { contains: search } },
+        { surname: { contains: search } },
+        { id: { contains: search } },
+        { email: { contains: search } },
+        { phone: { contains: search } },
+      ];
+    }
+    if (gradeIdParam) where.gradeId = Number(gradeIdParam);
+    if (classIdParam) where.classId = Number(classIdParam);
+
+    // Get total count for pagination (with search filter)
+    const totalItems = await prisma.student.count({ where });
+    const totalPages = Math.ceil(totalItems / limit);
+
+    // Fetch paginated students (with search filter)
     const students = await prisma.student.findMany({
+      where,
       include: {
         grade: true,
         parent: true,
-        class: true,
+        class: {
+          include: {
+            grade: true,
+          },
+        },
+      },
+      skip: skip,
+      take: limit,
+      orderBy: {
+        id: "asc",
       },
     });
-    return NextResponse.json(students);
+
+    return NextResponse.json({
+      students,
+      totalItems,
+      totalPages,
+      currentPage: page,
+      itemsPerPage: limit,
+    });
   } catch (error) {
     console.error("Error fetching students:", error);
     return NextResponse.json(

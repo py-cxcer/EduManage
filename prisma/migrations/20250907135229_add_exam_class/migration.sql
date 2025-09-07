@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE `exam` ADD COLUMN `classId` INTEGER NULL;
+
+-- AddForeignKey
+ALTER TABLE `Exam` ADD CONSTRAINT `Exam_classId_fkey` FOREIGN KEY (`classId`) REFERENCES `Class`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;

@@ -6,8 +6,10 @@ import TableSearch from "@/View/components/TableSearch";
 import Image from "next/image";
 import Table from "@/View/components/Table";
 import ActionForm from "@/View/components/ActionForm";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Subject, Class, Teacher } from "@prisma/client";
+import Pagination from "@/View/components/Pagination";
 
 const columns = [
   {
@@ -45,10 +47,13 @@ const columns = [
   },
 ];
 
-type TeacherInfo = Teacher & { subjects: Subject[] } & { classes: Class[] };
+type TeacherInfo = Teacher & { subjects: Subject[] } & {
+  classes: (Class & { grade?: { level: number } })[];
+};
 
 const TeacherRow = ({ item }: { item: TeacherInfo }) => {
   const { data: session } = useSession();
+  const router = useRouter();
   const isAdmin = session?.user?.role === "ADMIN";
 
   return (
@@ -77,8 +82,11 @@ const TeacherRow = ({ item }: { item: TeacherInfo }) => {
           "No subjects"}
       </td>
       <td className="hidden md:table-cell text-gray-500">
-        {item.classes?.map((classItem) => classItem.name).join(", ") ||
-          "No classes"}
+        {item.classes
+          ?.map(
+            (classItem) => `${classItem.grade?.level || ""}${classItem.name}`
+          )
+          .join(", ") || "No classes"}
       </td>
       <td className="hidden md:table-cell text-gray-500">{item.phone}</td>
       <td className="hidden md:table-cell text-gray-500">{item.address}</td>
@@ -86,10 +94,10 @@ const TeacherRow = ({ item }: { item: TeacherInfo }) => {
         <div className="flex items-center gap-2">
           {isAdmin && (
             <>
-              {/* Middle icon now opens profile */}
+              {/* View Profile button */}
               <button
                 onClick={() =>
-                  window.open(`/Dashboard/profile/${item.id}`, "_blank")
+                  router.push(`/Dashboard/list/teachers/${item.id}`)
                 }
                 className="w-7 h-7 flex items-center justify-center rounded-full bg-[#F5ECD5]"
                 title="View Profile"
@@ -114,23 +122,82 @@ const TeacherListPage = () => {
   const { data: session } = useSession();
   const [teachers, setTeachers] = useState<TeacherInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [searchTerm, setSearchTerm] = useState("");
   const isAdmin = session?.user?.role === "ADMIN";
+  const itemsPerPage = 7;
 
   useEffect(() => {
     const fetchTeachers = async () => {
       try {
-        const response = await fetch("/api/teachers");
-        const data = await response.json();
-        setTeachers(data);
+        const searchParam = searchTerm
+          ? `&search=${encodeURIComponent(searchTerm)}`
+          : "";
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        const response = await fetch(
+          `/api/teachers?page=${currentPage}&limit=${itemsPerPage}${searchParam}`,
+          { signal: controller.signal }
+        );
+        clearTimeout(timeout);
+        let data: any = {};
+        try {
+          data = await response.json();
+        } catch (e) {
+          data = {};
+        }
+        const list = Array.isArray(data.teachers)
+          ? data.teachers
+          : Array.isArray(data)
+          ? data
+          : [];
+        setTeachers(list);
+        const pages = Number.isFinite(data.totalPages)
+          ? data.totalPages
+          : Math.ceil(list.length / itemsPerPage) || 1;
+        setTotalPages(pages);
+        const items = Number.isFinite(data.totalItems)
+          ? data.totalItems
+          : list.length;
+        setTotalItems(items);
       } catch (error) {
-        console.error("Error fetching teachers:", error);
+        if ((error as any)?.name !== "AbortError") {
+          console.error("Error fetching teachers:", error);
+          setTeachers([]);
+          setTotalPages(1);
+          setTotalItems(0);
+        }
       } finally {
         setLoading(false);
       }
     };
 
+    setLoading(true);
+    const abortController = new AbortController();
+    // Run the actual fetch, but wire up cleanup to abort
     fetchTeachers();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [currentPage, searchTerm]);
+
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage((prev) => (prev === page ? prev : page));
+    setLoading(true);
   }, []);
+
+  const handleSearch = useCallback(
+    (term: string) => {
+      if (term === searchTerm) return;
+      setSearchTerm(term);
+      setCurrentPage(1);
+      setLoading(true);
+    },
+    [searchTerm]
+  );
 
   const rowData = (item: TeacherInfo) => (
     <TeacherRow key={item.id} item={item} />
@@ -155,7 +222,11 @@ const TeacherListPage = () => {
             All Teachers' Information
           </h1>
           <div className="flex flex-col md:flex-row items-center gap-4 text-gray-500 w-full md:w-auto">
-            <TableSearch />
+            <TableSearch
+              onSearch={handleSearch}
+              placeholder="Search teachers..."
+              ignoreEmpty={false}
+            />
             <div className="flex items-center gap-4 self-end">
               <button className="w-8 h-8 flex items-center justify-center rounded-full bg-[#FFF2C2]">
                 <Image src="/filter.png" alt="" width={14} height={14} />
@@ -168,6 +239,14 @@ const TeacherListPage = () => {
           </div>
         </div>
         <Table columns={columns} rowData={rowData} data={teachers} />
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+        />
       </div>
     </ProtectedRoute>
   );
