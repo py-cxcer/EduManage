@@ -92,7 +92,12 @@ export default function ClassForm({ type, data, onSuccess }: FormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const result = await res.json();
+      let result: any = null;
+      try {
+        result = await res.json();
+      } catch (_) {
+        // response might be empty or not JSON; keep result as null
+      }
       if (!res.ok) {
         alert(
           `Error: ${
