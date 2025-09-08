@@ -46,12 +46,12 @@ export async function PUT(
 ) {
   try {
     const body = await request.json();
-    const { title, startDate, dueDate, lessonId, classId } = body;
+    const { title, dueDate, lessonId, classId } = body;
 
-    // Validate required fields
-    if (!title || !startDate || !dueDate || !lessonId) {
+    // Validate required fields (mirror POST behavior)
+    if (!title || !dueDate || !lessonId) {
       return NextResponse.json(
-        { error: "Title, start date, due date, and lesson are required" },
+        { error: "Title, due date, and lesson are required" },
         { status: 400 }
       );
     }
@@ -68,23 +68,54 @@ export async function PUT(
       );
     }
 
-    // Check if lesson exists
+    // Check if lesson exists and pull related fields
     const lesson = await prisma.lesson.findUnique({
       where: { id: parseInt(lessonId) },
+      include: {
+        subject: true,
+        classes: { include: { grade: true } },
+        teacher: true,
+      },
     });
 
     if (!lesson) {
       return NextResponse.json({ error: "Lesson not found" }, { status: 404 });
     }
 
-    // Update the assignment
+    const start = new Date(dueDate);
+    if (isNaN(start.getTime())) {
+      return NextResponse.json(
+        { error: "Invalid date values" },
+        { status: 400 }
+      );
+    }
+
+    // Choose classId if provided, otherwise keep existing, otherwise default from lesson
+    let classIdToSet: number | undefined = undefined;
+    if (classId !== undefined) {
+      classIdToSet = classId ? Number(classId) : undefined;
+    } else if (existingAssignment.classId) {
+      classIdToSet = existingAssignment.classId as number;
+    } else {
+      classIdToSet = lesson.classes?.[0]?.id;
+    }
+    if (!classIdToSet) {
+      return NextResponse.json(
+        { error: "Lesson has no associated class to attach to assignment" },
+        { status: 400 }
+      );
+    }
+
+    // Update the assignment (mirror POST: set startDate = dueDate)
     const data: any = {
       title: String(title),
-      startDate: new Date(startDate),
-      dueDate: new Date(dueDate),
+      startDate: start,
+      dueDate: start,
       lessonId: parseInt(lessonId),
+      classId: classIdToSet,
+      subjectId: (lesson as any).subjectId,
+      teacherId: (lesson as any).teacherId,
     };
-    if (classId !== undefined) data.classId = classId ? Number(classId) : null;
 
     const assignment = await prisma.assignment.update({
       where: { id: parseInt(params.id) },

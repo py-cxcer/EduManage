@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../Model/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "../../../lib/auth";
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,13 +12,34 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "10");
     const skip = (page - 1) * limit;
 
-    const where = gradeIdParam ? { gradeId: Number(gradeIdParam) } : undefined;
+    let where: any = gradeIdParam ? { gradeId: Number(gradeIdParam) } : {};
 
-    const totalItems = await prisma.class.count({ where: where as any });
+    // If TEACHER: restrict to their assigned classes
+    try {
+      const session = (await getServerSession(authOptions as any)) as any;
+      if (session?.user?.role === "TEACHER") {
+        const teacher = await prisma.teacher.findUnique({
+          where: { id: String(session.user.id) },
+          include: { classes: { select: { id: true } } },
+        });
+        const classIds = (teacher?.classes || []).map((c) => c.id);
+        if (classIds.length > 0) where.id = { in: classIds };
+        else
+          return NextResponse.json({
+            classes: [],
+            totalItems: 0,
+            totalPages: 0,
+            currentPage: page,
+            itemsPerPage: limit,
+          });
+      }
+    } catch {}
+
+    const totalItems = await prisma.class.count({ where });
     const totalPages = Math.ceil(totalItems / limit);
 
     const classes = await prisma.class.findMany({
-      where: where as any,
+      where,
       include: {
         grade: true,
         supervisor: {
@@ -72,7 +95,9 @@ export async function POST(request: NextRequest) {
     const normalizedName = lettersMatch
       ? lettersMatch[1].toUpperCase()
       : trimmed.toUpperCase();
-    const targetLevel = Number(gradeLevel) || (digitsMatch ? parseInt(digitsMatch[1], 10) : undefined);
+    const targetLevel =
+      Number(gradeLevel) ||
+      (digitsMatch ? parseInt(digitsMatch[1], 10) : undefined);
 
     if (!targetLevel) {
       return NextResponse.json(
@@ -82,7 +107,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Ensure grade exists
-    let grade = await prisma.grade.findUnique({ where: { level: targetLevel } });
+    let grade = await prisma.grade.findUnique({
+      where: { level: targetLevel },
+    });
     if (!grade) {
       grade = await prisma.grade.create({ data: { level: targetLevel } });
     }

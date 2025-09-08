@@ -58,6 +58,7 @@ const StudentRow = ({ item }: { item: StudentInfo }) => {
   const { data: session } = useSession();
   const router = useRouter();
   const isAdmin = session?.user?.role === "ADMIN";
+  const isTeacher = session?.user?.role === "TEACHER";
 
   return (
     <tr
@@ -88,23 +89,23 @@ const StudentRow = ({ item }: { item: StudentInfo }) => {
       <td className="hidden md:table-cell text-gray-500">{item.address}</td>
       <td className="">
         <div className="flex items-center gap-2">
+          {(isAdmin || isTeacher) && (
+            <button
+              onClick={() => router.push(`/Dashboard/list/students/${item.id}`)}
+              className="w-7 h-7 flex items-center justify-center rounded-full bg-[#F5ECD5]"
+              title="View Profile"
+            >
+              <Image
+                src="/update.png"
+                alt="View Profile"
+                width={16}
+                height={16}
+              />
+            </button>
+          )}
           {isAdmin && (
             <>
               <ActionForm table="Student" type="update" id={item.id} />
-              <button
-                onClick={() =>
-                  router.push(`/Dashboard/list/students/${item.id}`)
-                }
-                className="w-7 h-7 flex items-center justify-center rounded-full bg-[#F5ECD5]"
-                title="View Profile"
-              >
-                <Image
-                  src="/update.png"
-                  alt="View Profile"
-                  width={16}
-                  height={16}
-                />
-              </button>
               <ActionForm table="Student" type="delete" id={item.id} />
             </>
           )}
@@ -215,7 +216,7 @@ const StudentList = () => {
   }
 
   return (
-    <ProtectedRoute requiredRole="ADMIN">
+    <ProtectedRoute allowedRoles={["ADMIN", "TEACHER"]}>
       <div className="bg-[#EEEFE0] p-4 rounded-md flex-1 m-4 mt-0">
         <div className="flex items-center justify-between">
           <h1 className="hidden md:block text-lg font-semibold text-gray-500">

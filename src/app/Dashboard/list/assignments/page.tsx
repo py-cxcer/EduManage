@@ -17,6 +17,11 @@ const columns = [
     className: "hidden md:table-cell",
   },
   {
+    header: "Title",
+    accessor: "title",
+    className: "hidden md:table-cell",
+  },
+  {
     header: "Class",
     accessor: "class",
     className: "hidden md:table-cell",
@@ -49,6 +54,7 @@ type AssignmentInfo = {
 const AssignmentRow = ({ item }: { item: AssignmentInfo }) => {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "ADMIN";
+  const isTeacher = session?.user?.role === "TEACHER";
 
   return (
     <tr
@@ -61,6 +67,7 @@ const AssignmentRow = ({ item }: { item: AssignmentInfo }) => {
         </div>
       </td>
 
+      <td className="hidden md:table-cell text-gray-500">{item.title}</td>
       <td className="hidden md:table-cell text-gray-500">{item.className}</td>
       <td className="hidden md:table-cell text-gray-500">{item.teacherName}</td>
       <td className="hidden md:table-cell text-gray-500">
@@ -68,17 +75,12 @@ const AssignmentRow = ({ item }: { item: AssignmentInfo }) => {
       </td>
       <td className="">
         <div className="flex items-center gap-2">
-          {isAdmin && (
+          {(isAdmin || isTeacher) && (
             <>
               <ActionForm
                 table="Assignment"
                 type="update"
                 data={item}
-                id={item.id.toString()}
-              />
-              <ActionForm
-                table="Assignment"
-                type="delete"
                 id={item.id.toString()}
               />
             </>
@@ -104,6 +106,7 @@ const AssignmentList = () => {
   const [classId, setClassId] = useState<number | "">("");
   const [filterOpen, setFilterOpen] = useState(false);
   const isAdmin = session?.user?.role === "ADMIN";
+  const isTeacher = session?.user?.role === "TEACHER";
   const itemsPerPage = 7;
 
   useEffect(() => {
@@ -191,7 +194,7 @@ const AssignmentList = () => {
   }
 
   return (
-    <ProtectedRoute requiredRole="ADMIN">
+    <ProtectedRoute allowedRoles={["ADMIN", "TEACHER", "STUDENT", "PARENT"]}>
       <div className="bg-[#EEEFE0] p-4 rounded-md flex-1 m-4 mt-0">
         <div className="flex items-center justify-between">
           <h1 className="hidden md:block text-lg font-semibold text-gray-500">
@@ -294,7 +297,9 @@ const AssignmentList = () => {
               <button className="w-8 h-8 flex items-center justify-center rounded-full bg-[#FFF2C2]">
                 <Image src="/sort.png" alt="" width={14} height={14} />
               </button>
-              {isAdmin && <ActionForm table="Assignment" type="create" />}
+              {(isAdmin || isTeacher) && (
+                <ActionForm table="Assignment" type="create" />
+              )}
             </div>
           </div>
         </div>

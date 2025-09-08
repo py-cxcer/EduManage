@@ -35,7 +35,7 @@ export default function EventForm({ type, data, onSuccess }: Props) {
   useEffect(() => {
     const fetchClasses = async () => {
       try {
-        const res = await fetch("/api/classes");
+        const res = await fetch("/api/classes?page=1&limit=1000");
         const json = await res.json();
         const options = (json.classes || []).map((c: any) => ({
           id: c.id,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -16,6 +16,18 @@ const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const AttendanceChart = () => {
   const [data, setData] = useState<any[]>([]);
+  const maxCount = useMemo(() => {
+    let m = 0;
+    data.forEach((d) => {
+      m = Math.max(m, Number(d.present || 0), Number(d.absent || 0));
+    });
+    return m;
+  }, [data]);
+  const ticks = useMemo(() => {
+    const arr: number[] = [];
+    for (let i = 0; i <= maxCount; i++) arr.push(i);
+    return arr.length ? arr : [0];
+  }, [maxCount]);
 
   useEffect(() => {
     const load = async () => {
@@ -81,7 +93,7 @@ const AttendanceChart = () => {
             tick={{ fill: "#d1d5db" }}
             tickLine={false}
           />
-          <YAxis />
+          <YAxis allowDecimals={false} ticks={ticks} domain={[0, maxCount]} />
           <Tooltip
             contentStyle={{
               borderRadius: "10px",

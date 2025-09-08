@@ -14,15 +14,27 @@ export default function StudentProfileRedirect() {
       if (status === "loading" || !session?.user?.id) return;
 
       try {
-        // Try to fetch student data using the user ID
-        // The API will handle the lookup and return the correct student
-        const response = await fetch(`/api/students/${session.user.id}`);
+        // Resolve student id for the logged in user (works for STUDENT and PARENT)
+        // 1) Try: user id -> student (for STUDENT role)
+        let response = await fetch(`/api/students/${session.user.id}`);
         if (response.ok) {
           const studentData = await response.json();
           // Redirect to the student profile using the student ID
           router.replace(`/Dashboard/list/students/${studentData.id}`);
         } else {
-          // No student record found, redirect to regular profile
+          // 2) If parent: find first assigned child and redirect
+          const childRes = await fetch(`/api/users/${session.user.id}`);
+          if (childRes.ok) {
+            const userData = await childRes.json();
+            const childIds: string[] = Array.isArray(userData.studentIds)
+              ? userData.studentIds
+              : [];
+            if (childIds.length > 0) {
+              router.replace(`/Dashboard/list/students/${childIds[0]}`);
+              return;
+            }
+          }
+          // Fallback
           router.replace("/Dashboard/profile");
         }
       } catch (error) {
@@ -36,7 +48,7 @@ export default function StudentProfileRedirect() {
   }, [session, status, router]);
 
   return (
-    <ProtectedRoute requiredRole="STUDENT">
+    <ProtectedRoute allowedRoles={["STUDENT", "PARENT"]}>
       <div className="flex-1 p-6 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>

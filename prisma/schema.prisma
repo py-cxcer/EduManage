@@ -128,6 +128,12 @@ model Lesson {
   classes     Class[]      @relation("LessonClass")
   teacherId   String
   teacher     Teacher      @relation(fields: [teacherId], references: [id])
+
+  // Weekly recurring schedule (0=Sunday .. 6=Saturday)
+  dayOfWeek   Int? // deprecated, use daysJson
+  startTime   String?
+  endTime     String?
+  daysJson    Json?   // array of integers [0..6]
   exams       Exam[]
   assignments Assignment[]
   attendances Attendance[]

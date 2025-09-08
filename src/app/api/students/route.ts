@@ -53,6 +53,33 @@ export async function GET(request: NextRequest) {
     if (gradeIdParam) where.gradeId = Number(gradeIdParam);
     if (classIdParam) where.classId = Number(classIdParam);
 
+    // If the requester is a TEACHER, scope students to teacher's homeroom classes
+    try {
+      const session = (await getServerSession(authOptions as any)) as any;
+      if (session?.user?.role === "TEACHER") {
+        const teacherId = String(session.user.id);
+        const teacher = await prisma.teacher.findUnique({
+          where: { id: teacherId },
+          include: { classes: { select: { id: true } } },
+        });
+        const classIds = (teacher?.classes || []).map((c) => c.id);
+        if (classIds.length > 0) {
+          where.classId = classIdParam
+            ? Number(classIdParam)
+            : ({ in: classIds } as any);
+        } else {
+          // If no assigned classes, return empty list quickly
+          return NextResponse.json({
+            students: [],
+            totalItems: 0,
+            totalPages: 0,
+            currentPage: page,
+            itemsPerPage: limit,
+          });
+        }
+      }
+    } catch {}
+
     // Get total count for pagination (with search filter)
     const totalItems = await prisma.student.count({ where });
     const totalPages = Math.ceil(totalItems / limit);

@@ -65,7 +65,16 @@ export async function PUT(
   try {
     const { id } = await context.params;
     const body = await request.json();
-    const { subjectId, classIds, teacherId } = body;
+    const {
+      subjectId,
+      classIds,
+      teacherId,
+      startAt,
+      endAt,
+      dayOfWeek,
+      startTime,
+      endTime,
+    } = body;
 
     console.log("Updating lesson:", {
       id,
@@ -156,6 +165,24 @@ export async function PUT(
         data: {
           subjectId: parseInt(subjectId),
           teacherId,
+          ...(startAt !== undefined
+            ? { startAt: startAt ? new Date(startAt) : null }
+            : {}),
+          ...(endAt !== undefined
+            ? { endAt: endAt ? new Date(endAt) : null }
+            : {}),
+          ...(dayOfWeek !== undefined
+            ? { dayOfWeek: dayOfWeek !== null ? Number(dayOfWeek) : null }
+            : {}),
+          ...(startTime !== undefined ? { startTime: startTime || null } : {}),
+          ...(endTime !== undefined ? { endTime: endTime || null } : {}),
+          ...((body as any).days !== undefined
+            ? {
+                daysJson: Array.isArray((body as any).days)
+                  ? (body as any).days
+                  : null,
+              }
+            : {}),
           classes: {
             set: [], // Clear existing relationships
             connect: classIds.map((id: number) => ({ id })),

@@ -99,22 +99,31 @@ const StudentForm = ({
     fetchGrades();
   }, []);
 
-  // Load classes for the dropdown
+  // Load classes for the dropdown (refetch when grade changes to include newly created classes)
   useEffect(() => {
+    let cancelled = false;
     const fetchClasses = async () => {
       try {
-        const response = await fetch("/api/classes");
+        setClassesLoading(true);
+        const query = selectedGradeId
+          ? `?gradeId=${encodeURIComponent(selectedGradeId)}&page=1&limit=1000`
+          : `?page=1&limit=1000`;
+        const response = await fetch(`/api/classes${query}`);
         const data = await response.json();
+        if (cancelled) return;
         setClasses(data.classes || data);
       } catch (error) {
-        console.error("Error fetching classes:", error);
+        if (!cancelled) console.error("Error fetching classes:", error);
       } finally {
-        setClassesLoading(false);
+        if (!cancelled) setClassesLoading(false);
       }
     };
 
     fetchClasses();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGradeId]);
 
   // Load student data for update
   useEffect(() => {

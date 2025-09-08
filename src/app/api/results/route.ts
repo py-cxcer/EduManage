@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../Model/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "../../../lib/auth";
 
 export async function GET(request: NextRequest) {
   try {
@@ -71,6 +73,65 @@ export async function GET(request: NextRequest) {
         },
       ];
     }
+
+    // If TEACHER, scope to their lessons' results; if STUDENT, scope to their class
+    try {
+      const session = (await getServerSession(authOptions as any)) as any;
+      if (session?.user?.role === "TEACHER") {
+        baseWhere.AND = [
+          ...(baseWhere.AND || []),
+          {
+            OR: [
+              { exam: { lesson: { teacherId: String(session.user.id) } } },
+              {
+                assignment: { lesson: { teacherId: String(session.user.id) } },
+              },
+            ],
+          },
+        ];
+      } else if (
+        session?.user?.role === "STUDENT" ||
+        session?.user?.role === "PARENT"
+      ) {
+        const user = await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { username: true },
+        });
+        if (user?.username) {
+          if (session.user.role === "STUDENT") {
+            const student = await prisma.student.findUnique({
+              where: { username: user.username },
+              select: { id: true },
+            });
+            if (student) {
+              baseWhere.AND = [
+                ...(baseWhere.AND || []),
+                { studentId: student.id },
+              ];
+            }
+          } else {
+            const parent = await prisma.parent.findUnique({
+              where: { username: user.username },
+              select: { id: true },
+            });
+            if (parent?.id) {
+              const childIds = (
+                await prisma.student.findMany({
+                  where: { parentId: parent.id },
+                  select: { id: true },
+                })
+              ).map((s) => s.id);
+              if (childIds.length) {
+                baseWhere.AND = [
+                  ...(baseWhere.AND || []),
+                  { studentId: { in: childIds } },
+                ];
+              }
+            }
+          }
+        }
+      }
+    } catch {}
 
     const results = await prisma.result.findMany({
       where: baseWhere,

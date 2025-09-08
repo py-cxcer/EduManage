@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../Model/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "../../../lib/auth";
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,6 +10,27 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "10");
     const search = (searchParams.get("search") || "").trim();
     const skip = (page - 1) * limit;
+
+    // Role-based scoping: if parent, show payments for their children only
+    let roleWhere: any = {};
+    try {
+      const session: any = await getServerSession(authOptions as any);
+      if (session?.user?.role === "PARENT") {
+        const user = await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { username: true },
+        });
+        if (user?.username) {
+          const parent = await prisma.parent.findUnique({
+            where: { username: user.username },
+            select: { id: true },
+          });
+          if (parent?.id) {
+            roleWhere = { student: { parentId: parent.id } };
+          }
+        }
+      }
+    } catch {}
 
     const where = search
       ? {
@@ -18,11 +41,13 @@ export async function GET(request: NextRequest) {
         }
       : {};
 
-    const totalItems = await prisma.payment.count({ where });
+    const totalItems = await prisma.payment.count({
+      where: { AND: [where, roleWhere] },
+    });
     const totalPages = Math.ceil(totalItems / limit);
 
     const payments = await prisma.payment.findMany({
-      where,
+      where: { AND: [where, roleWhere] },
       include: {
         student: {
           select: {

@@ -66,6 +66,7 @@ type ResultInfo = {
 const ResultRow = ({ item }: { item: ResultInfo }) => {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "ADMIN";
+  const isTeacher = session?.user?.role === "TEACHER";
 
   return (
     <tr
@@ -88,16 +89,11 @@ const ResultRow = ({ item }: { item: ResultInfo }) => {
       </td>
       <td className="">
         <div className="flex items-center gap-2">
-          {isAdmin && (
+          {(isAdmin || isTeacher) && (
             <>
               <ActionForm
                 table="Result"
                 type="update"
-                id={item.id.toString()}
-              />
-              <ActionForm
-                table="Result"
-                type="delete"
                 id={item.id.toString()}
               />
             </>
@@ -126,6 +122,7 @@ const ResultList = () => {
   >("");
   const [filterOpen, setFilterOpen] = useState(false);
   const isAdmin = session?.user?.role === "ADMIN";
+  const isTeacher = session?.user?.role === "TEACHER";
   const itemsPerPage = 7;
 
   useEffect(() => {
@@ -218,7 +215,7 @@ const ResultList = () => {
   }
 
   return (
-    <ProtectedRoute requiredRole="ADMIN">
+    <ProtectedRoute allowedRoles={["ADMIN", "TEACHER", "STUDENT", "PARENT"]}>
       <div className="bg-[#EEEFE0] p-4 rounded-md flex-1 m-4 mt-0">
         <div className="flex items-center justify-between">
           <h1 className="hidden md:block text-lg font-semibold text-gray-500">
@@ -338,7 +335,9 @@ const ResultList = () => {
               <button className="w-8 h-8 flex items-center justify-center rounded-full bg-[#FFF2C2]">
                 <Image src="/sort.png" alt="" width={14} height={14} />
               </button>
-              {isAdmin && <ActionForm table="Result" type="create" />}
+              {(isAdmin || isTeacher) && (
+                <ActionForm table="Result" type="create" />
+              )}
             </div>
           </div>
         </div>

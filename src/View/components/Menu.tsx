@@ -49,7 +49,7 @@ const menuItems: Array<{
         icon: "/attendance.png",
         Label: "Attendance",
         href: "/Dashboard/list/attendance",
-        access: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], //admin, teacher, student, parents can see attendance
+        access: ["ADMIN", "TEACHER"], //admin, teacher, can see attendance
       },
       {
         icon: "/subject.png",
@@ -98,7 +98,7 @@ const menuItems: Array<{
         icon: "/finance.png",
         Label: "Finance",
         href: "/Dashboard/list/finance",
-        access: ["ADMIN", "PARENT"], // All roles can see finance
+        access: ["ADMIN", "PARENT"],
       },
       {
         icon: "/announcement.png",
@@ -115,11 +115,17 @@ const menuItems: Array<{
         icon: "/avatar.png",
         Label: "My Profile",
         href: "/Dashboard/profile",
-        access: ["TEACHER", "STUDENT"], // Teachers,students see their profile
+        access: ["TEACHER", "STUDENT", "PARENT"],
         dynamicHref: (session: any) => {
+          if (session?.user?.role === "TEACHER") {
+            return `/Dashboard/list/teachers/${session.user.id}`;
+          }
           if (session?.user?.role === "STUDENT") {
-            // For students, we need to find their student ID first
-            // We'll use a special route that handles this lookup
+            // Keep existing resolver page for student to look up numeric student id
+            return `/Dashboard/profile/student`;
+          }
+          if (session?.user?.role === "PARENT") {
+            // route to first child profile; UI could later allow choosing child
             return `/Dashboard/profile/student`;
           }
           return "/Dashboard/profile";
@@ -128,7 +134,7 @@ const menuItems: Array<{
       {
         icon: "/settings.png",
         Label: "settings",
-        href: "/Dashboard/settings",
+        href: "/",
         access: ["ADMIN", "TEACHER", "STUDENT"],
       },
       {

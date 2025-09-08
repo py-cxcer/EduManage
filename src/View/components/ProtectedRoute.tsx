@@ -7,13 +7,15 @@ import { ReactNode } from "react";
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  requiredRole?: string;
+  requiredRole?: string; // deprecated in favor of allowedRoles
+  allowedRoles?: string[];
   fallback?: ReactNode;
 }
 
 export default function ProtectedRoute({
   children,
   requiredRole,
+  allowedRoles,
   fallback,
 }: ProtectedRouteProps) {
   const { data: session, status } = useSession();
@@ -27,11 +29,17 @@ export default function ProtectedRoute({
       return;
     }
 
-    if (requiredRole && session.user.role !== requiredRole) {
+    const role = session.user.role;
+    if (
+      (requiredRole && role !== requiredRole) ||
+      (Array.isArray(allowedRoles) &&
+        allowedRoles.length > 0 &&
+        !allowedRoles.includes(role))
+    ) {
       router.push("/Dashboard");
       return;
     }
-  }, [session, status, router, requiredRole]);
+  }, [session, status, router, requiredRole, allowedRoles]);
 
   // Show loading state
   if (status === "loading") {
@@ -59,7 +67,12 @@ export default function ProtectedRoute({
   }
 
   // Check role if required
-  if (requiredRole && session.user.role !== requiredRole) {
+  if (
+    (requiredRole && session.user.role !== requiredRole) ||
+    (Array.isArray(allowedRoles) &&
+      allowedRoles.length > 0 &&
+      !allowedRoles.includes(session.user.role))
+  ) {
     return (
       fallback || (
         <div className="min-h-screen flex items-center justify-center">

@@ -55,6 +55,7 @@ const TeacherRow = ({ item }: { item: TeacherInfo }) => {
   const { data: session } = useSession();
   const router = useRouter();
   const isAdmin = session?.user?.role === "ADMIN";
+  const isTeacher = session?.user?.role === "TEACHER";
 
   return (
     <tr
@@ -92,26 +93,21 @@ const TeacherRow = ({ item }: { item: TeacherInfo }) => {
       <td className="hidden md:table-cell text-gray-500">{item.address}</td>
       <td>
         <div className="flex items-center gap-2">
-          {isAdmin && (
-            <>
-              {/* View Profile button */}
-              <button
-                onClick={() =>
-                  router.push(`/Dashboard/list/teachers/${item.id}`)
-                }
-                className="w-7 h-7 flex items-center justify-center rounded-full bg-[#F5ECD5]"
-                title="View Profile"
-              >
-                <Image
-                  src="/update.png"
-                  alt="View Profile"
-                  width={16}
-                  height={16}
-                />
-              </button>
-              <ActionForm table="Teacher" type="delete" id={item.id} />
-            </>
+          {(isAdmin || isTeacher) && (
+            <button
+              onClick={() => router.push(`/Dashboard/list/teachers/${item.id}`)}
+              className="w-7 h-7 flex items-center justify-center rounded-full bg-[#F5ECD5]"
+              title="View Profile"
+            >
+              <Image
+                src="/update.png"
+                alt="View Profile"
+                width={16}
+                height={16}
+              />
+            </button>
           )}
+          {isAdmin && <ActionForm table="Teacher" type="delete" id={item.id} />}
         </div>
       </td>
     </tr>
@@ -215,7 +211,7 @@ const TeacherListPage = () => {
   }
 
   return (
-    <ProtectedRoute requiredRole="ADMIN">
+    <ProtectedRoute allowedRoles={["ADMIN", "TEACHER"]}>
       <div className="bg-[#EEEFE0] p-4 rounded-md flex-1 m-4 mt-0">
         <div className="flex items-center justify-between">
           <h1 className="hidden md:block text-lg font-semibold text-gray-500">

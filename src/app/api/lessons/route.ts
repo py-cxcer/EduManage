@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../Model/prisma";
 import { syncTeacherClasses } from "../../../lib/teacherClassSync";
+import { getServerSession } from "next-auth";
+import { authOptions } from "../../../lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { subjectId, classIds, teacherId } = body;
+    const {
+      subjectId,
+      classIds,
+      teacherId,
+      startAt,
+      endAt,
+      dayOfWeek,
+      startTime,
+      endTime,
+    } = body;
 
     console.log("Creating lesson:", {
       subjectId,
@@ -68,6 +79,14 @@ export async function POST(request: NextRequest) {
         data: {
           subjectId: parseInt(subjectId),
           teacherId,
+          ...(startAt ? { startAt: new Date(startAt) } : {}),
+          ...(endAt ? { endAt: new Date(endAt) } : {}),
+          ...(dayOfWeek !== undefined ? { dayOfWeek: Number(dayOfWeek) } : {}),
+          ...(startTime ? { startTime: String(startTime) } : {}),
+          ...(endTime ? { endTime: String(endTime) } : {}),
+          ...(Array.isArray((body as any).days)
+            ? { daysJson: (body as any).days as any }
+            : {}),
           classes: {
             connect: classIds.map((id: number) => ({ id })),
           },
@@ -118,6 +137,8 @@ export async function GET(request: NextRequest) {
   try {
     console.log("Fetching all lessons");
 
+    const session: any = await getServerSession(authOptions as any);
+
     // Get pagination parameters from URL
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
@@ -131,16 +152,38 @@ export async function GET(request: NextRequest) {
     const totalItems = await prisma.lesson.count();
     const totalPages = Math.ceil(totalItems / limit);
 
+    const where: any = {
+      ...(subjectIdParam ? { subjectId: Number(subjectIdParam) } : {}),
+      ...(teacherIdParam ? { teacherId: teacherIdParam as string } : {}),
+      ...(classIdParam
+        ? { classes: { some: { id: Number(classIdParam) } } }
+        : {}),
+    };
+    if (session?.user?.role === "TEACHER") {
+      // Lessons store teacherId that matches the logged-in User.id in this codebase
+      // Scope to the current user's id unless an explicit teacherId filter was provided
+      if (!teacherIdParam) {
+        where.teacherId = session.user.id;
+      }
+    }
+
     const lessons = await prisma.lesson.findMany({
-      where: {
-        ...(subjectIdParam ? { subjectId: Number(subjectIdParam) } : {}),
-        ...(teacherIdParam ? { teacherId: teacherIdParam as string } : {}),
-        ...(classIdParam
-          ? { classes: { some: { id: Number(classIdParam) } } }
-          : {}),
-      },
+      where,
       select: {
         id: true,
+        subjectId: true,
+        teacherId: true,
+        dayOfWeek: true,
+        startTime: true,
+        endTime: true,
+        daysJson: true,
+        class: {
+          select: {
+            id: true,
+            name: true,
+            grade: { select: { level: true } },
+          },
+        },
         subject: {
           select: {
             name: true,
@@ -163,7 +206,7 @@ export async function GET(request: NextRequest) {
             surname: true,
           },
         },
-      },
+      } as any,
       orderBy: {
         id: "asc",
       },
@@ -174,14 +217,23 @@ export async function GET(request: NextRequest) {
     // Transform the data to include subject name, class names, and teacher name
     const lessonsWithDetails = lessons.map((lesson: any) => ({
       id: lesson.id,
-      subjectName: lesson.subject.name,
-      className: lesson.classes
-        .map((cls: any) => `${cls.grade.level}${cls.name}`)
-        .join(", "),
-      teacherName: `${lesson.teacher.name} ${lesson.teacher.surname}`,
-      classes: lesson.classes,
+      dayOfWeek: lesson.dayOfWeek,
+      startTime: lesson.startTime,
+      endTime: lesson.endTime,
+      days: Array.isArray(lesson.daysJson) ? lesson.daysJson : undefined,
       subjectId: lesson.subjectId,
       teacherId: lesson.teacherId,
+      subjectName: lesson.subject.name,
+      className:
+        lesson.classes && lesson.classes.length > 0
+          ? lesson.classes
+              .map((cls: any) => `${cls.grade.level}${cls.name}`)
+              .join(", ")
+          : lesson.class
+          ? `${lesson.class.grade?.level ?? ""}${lesson.class.name}`
+          : "No Class",
+      teacherName: `${lesson.teacher.name} ${lesson.teacher.surname}`,
+      classes: lesson.classes,
     }));
 
     return NextResponse.json({

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../Model/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "../../../lib/auth";
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,8 +30,31 @@ export async function GET(request: NextRequest) {
     });
     const totalPages = Math.ceil(totalItems / limit);
 
+    // Scope for students: show announcements for their class or global (null classId)
+    let roleWhere: any = {};
+    try {
+      const session: any = await getServerSession(authOptions as any);
+      if (session?.user?.role === "STUDENT") {
+        const user = await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { username: true },
+        });
+        if (user?.username) {
+          const student = await prisma.student.findUnique({
+            where: { username: user.username },
+            select: { classId: true },
+          });
+          if (student?.classId) {
+            roleWhere = {
+              OR: [{ classId: null }, { classId: student.classId }],
+            };
+          }
+        }
+      }
+    } catch {}
+
     const announcements = await prisma.announcement.findMany({
-      where: searchConditions,
+      where: { AND: [searchConditions, roleWhere] },
       select: {
         id: true,
         title: true,

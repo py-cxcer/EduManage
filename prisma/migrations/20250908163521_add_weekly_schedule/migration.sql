@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE `lesson` ADD COLUMN `dayOfWeek` INTEGER NULL,
+    ADD COLUMN `endTime` VARCHAR(191) NULL,
+    ADD COLUMN `startTime` VARCHAR(191) NULL;

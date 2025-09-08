@@ -18,6 +18,14 @@ const columns = [
     accessor: "class",
   },
   {
+    header: "Days",
+    accessor: "days",
+  },
+  {
+    header: "Time",
+    accessor: "time",
+  },
+  {
     header: "Teacher",
     accessor: "teacher",
   },
@@ -32,6 +40,10 @@ type LessonInfo = {
   subjectName: string;
   className: string;
   teacherName: string;
+  dayOfWeek?: number | null;
+  days?: number[];
+  startTime?: string | null;
+  endTime?: string | null;
   classes?: Array<{
     id: number;
     name: string;
@@ -46,6 +58,7 @@ type LessonInfo = {
 const LessonRow = ({ item }: { item: LessonInfo }) => {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "ADMIN";
+  const isTeacher = session?.user?.role === "TEACHER";
 
   return (
     <tr
@@ -59,6 +72,23 @@ const LessonRow = ({ item }: { item: LessonInfo }) => {
       </td>
 
       <td className="text-gray-500">{item.className}</td>
+      <td className="text-gray-500">
+        {(item.days && item.days.length > 0
+          ? item.days
+          : item.dayOfWeek !== undefined && item.dayOfWeek !== null
+          ? [item.dayOfWeek]
+          : []
+        )
+          .slice()
+          .sort()
+          .map((d) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d])
+          .join(", ") || "-"}
+      </td>
+      <td className="text-gray-500">
+        {item.startTime && item.endTime
+          ? `${item.startTime} - ${item.endTime}`
+          : "-"}
+      </td>
       <td className="text-gray-500">{item.teacherName}</td>
       <td className="">
         <div className="flex items-center gap-2">
@@ -148,7 +178,12 @@ const LessonList = () => {
           .join("&");
         const response = await fetch(`/api/lessons?${qs}`);
         const data = await response.json();
-        setLessons(data.lessons || data);
+        setLessons(
+          (data.lessons || data).map((l: any) => ({
+            ...l,
+            days: Array.isArray(l.days) ? l.days : undefined,
+          }))
+        );
         setTotalPages(
           data.totalPages ||
             Math.ceil((data.lessons || data).length / itemsPerPage)
@@ -183,7 +218,7 @@ const LessonList = () => {
   }
 
   return (
-    <ProtectedRoute requiredRole="ADMIN">
+    <ProtectedRoute allowedRoles={["ADMIN", "TEACHER"]}>
       <div className="bg-[#EEEFE0] p-4 rounded-md flex-1 m-4 mt-0">
         <div className="flex items-center justify-between">
           <h1 className="hidden md:block text-lg font-semibold text-gray-500">

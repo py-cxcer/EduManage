@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../Model/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "../../../lib/auth";
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,10 +30,68 @@ export async function GET(request: NextRequest) {
     });
     const totalPages = Math.ceil(totalItems / limit);
 
+    // If TEACHER, scope to their lessons; if STUDENT, scope to their class
+    let teacherScope: any = {};
+    let classScopeForStudent: any = {};
+    try {
+      const session = (await getServerSession(authOptions as any)) as any;
+      if (session?.user?.role === "TEACHER") {
+        teacherScope.teacherId = String(session.user.id);
+      } else if (
+        session?.user?.role === "STUDENT" ||
+        session?.user?.role === "PARENT"
+      ) {
+        const user = await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { username: true },
+        });
+        if (user?.username) {
+          if (session.user.role === "STUDENT") {
+            const student = await prisma.student.findUnique({
+              where: { username: user.username },
+              select: { classId: true },
+            });
+            if (student?.classId) {
+              classScopeForStudent = {
+                OR: [
+                  { classId: student.classId },
+                  { lesson: { classes: { some: { id: student.classId } } } },
+                ],
+              } as any;
+            }
+          } else {
+            const parent = await prisma.parent.findUnique({
+              where: { username: user.username },
+              select: { id: true },
+            });
+            if (parent?.id) {
+              const children = await prisma.student.findMany({
+                where: { parentId: parent.id },
+                select: { classId: true },
+              });
+              const clsIds = children
+                .map((c) => c.classId)
+                .filter(Boolean) as number[];
+              if (clsIds.length) {
+                classScopeForStudent = {
+                  OR: [
+                    { classId: { in: clsIds } },
+                    { lesson: { classes: { some: { id: { in: clsIds } } } } },
+                  ],
+                } as any;
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+
     const exams = await prisma.exam.findMany({
       where: {
         ...searchConditions,
+        ...classScopeForStudent,
         lesson: {
+          ...teacherScope,
           ...(subjectIdParam ? { subjectId: Number(subjectIdParam) } : {}),
           ...(teacherIdParam ? { teacherId: teacherIdParam as string } : {}),
           ...(classIdParam

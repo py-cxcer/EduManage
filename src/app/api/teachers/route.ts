@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       where: searchConditions,
       include: {
         subjects: true,
-        classes: true,
+        classes: { include: { grade: true } },
       },
       skip: skip,
       take: limit,

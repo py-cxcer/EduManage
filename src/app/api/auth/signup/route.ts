@@ -152,10 +152,22 @@ export async function POST(request: NextRequest) {
       } else if (upperRole === "PARENT") {
         // Create parent profile and optionally assign selected students to this parent
         const parentId = user.id; // align parent id with user id for consistency
-        const phoneValue =
+        // If a phone is provided and already exists (unique column), make it unique by suffixing
+        const providedPhone =
           typeof phone === "string" && phone.trim() !== ""
             ? phone.trim()
-            : `P-${username}-${Date.now()}`; // ensure non-null & unique
+            : null;
+        let finalPhone = providedPhone ?? `P-${username}-${Date.now()}`;
+        if (providedPhone) {
+          const phoneExists = await tx.parent.findUnique({
+            where: { phone: providedPhone },
+            select: { id: true },
+          });
+          if (phoneExists) {
+            finalPhone = `${providedPhone}-${Date.now()}`;
+          }
+        }
+
         const parent = await tx.parent.create({
           data: {
             id: parentId,
@@ -163,7 +175,7 @@ export async function POST(request: NextRequest) {
             name: (name as string) || "",
             surname: (surname as string) || "",
             email: null,
-            phone: phoneValue,
+            phone: finalPhone,
             address: (address as string) || "Not set",
           },
         });
