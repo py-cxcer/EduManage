@@ -167,23 +167,28 @@ const SingleTeacherPage = () => {
         return;
       }
 
+      const isAdmin = session?.user?.role === "ADMIN";
+      const payload: any = {
+        name: editData.name?.trim(),
+        surname: editData.surname?.trim(),
+        email: editData.email?.trim() || teacher.email,
+        phone: editData.phone?.trim(),
+        address: editData.address?.trim(),
+        bloodType: editData.bloodType,
+        birthday: editData.dateOfBirth, // API expects 'birthday', not 'dateOfBirth'
+        sex: editData.sex,
+      };
+      if (isAdmin) {
+        payload.subjectIds = selectedSubjectIds;
+        payload.classIds = selectedClassIds;
+      }
+
       const response = await fetch(`/api/teachers/${teacher.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name: editData.name?.trim(),
-          surname: editData.surname?.trim(),
-          email: editData.email?.trim() || teacher.email,
-          phone: editData.phone?.trim(),
-          address: editData.address?.trim(),
-          bloodType: editData.bloodType,
-          birthday: editData.dateOfBirth, // API expects 'birthday', not 'dateOfBirth'
-          sex: editData.sex,
-          subjectIds: selectedSubjectIds,
-          classIds: selectedClassIds,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
@@ -302,9 +307,11 @@ const SingleTeacherPage = () => {
   };
 
   // Check if current user can edit this profile
+  const isAdmin = session?.user?.role === "ADMIN";
   const canEdit =
-    session?.user?.role === "ADMIN" ||
+    isAdmin ||
     (session?.user?.role === "TEACHER" && session.user.id === teacherId);
+  const canEditTeaching = isAdmin && editing;
 
   return (
     <ProtectedRoute>
@@ -632,7 +639,9 @@ const SingleTeacherPage = () => {
                     <div className="w-2 h-2 bg-[#A7C1A8] rounded-full"></div>
                     Classes Taught
                   </h4>
-                  {!editing && teacher.classes && teacher.classes.length > 0 ? (
+                  {!canEditTeaching &&
+                  teacher.classes &&
+                  teacher.classes.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {teacher.classes.map((cls: any, index: number) => (
                         <div key={index} className="bg-gray-50 rounded-lg p-3">
@@ -643,7 +652,7 @@ const SingleTeacherPage = () => {
                         </div>
                       ))}
                     </div>
-                  ) : !editing ? (
+                  ) : !canEditTeaching ? (
                     <div className="bg-gray-50 rounded-lg p-3">
                       <span className="text-sm text-gray-500">
                         No classes assigned
@@ -663,7 +672,7 @@ const SingleTeacherPage = () => {
                     <div className="w-2 h-2 bg-[#819A91] rounded-full"></div>
                     Subjects Taught
                   </h4>
-                  {!editing &&
+                  {!canEditTeaching &&
                   teacher.subjects &&
                   teacher.subjects.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -675,7 +684,7 @@ const SingleTeacherPage = () => {
                         </div>
                       ))}
                     </div>
-                  ) : !editing ? (
+                  ) : !canEditTeaching ? (
                     <div className="bg-gray-50 rounded-lg p-3">
                       <span className="text-sm text-gray-500">
                         No subjects assigned

@@ -331,9 +331,7 @@ const SingleStudentPage = () => {
   };
 
   // Check if current user can edit this profile
-  const canEdit =
-    session?.user?.role === "ADMIN" ||
-    (session?.user?.role === "STUDENT" && session.user.id === studentId);
+  const canEdit = session?.user?.role === "ADMIN";
 
   return (
     <ProtectedRoute>

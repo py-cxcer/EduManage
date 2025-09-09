@@ -16,6 +16,7 @@ const columns = [
     accessor: "subject",
     className: "hidden md:table-cell",
   },
+
   {
     header: "Student",
     accessor: "student",
@@ -29,6 +30,11 @@ const columns = [
   {
     header: "Type",
     accessor: "type",
+    className: "hidden md:table-cell",
+  },
+  {
+    header: "Title",
+    accessor: "title",
     className: "hidden md:table-cell",
   },
   {
@@ -56,6 +62,7 @@ type ResultInfo = {
   id: number;
   score: number;
   subjectName: string;
+  assessmentTitle: string;
   studentName: string;
   type?: string;
   className: string;
@@ -82,6 +89,9 @@ const ResultRow = ({ item }: { item: ResultInfo }) => {
       <td className="hidden md:table-cell text-gray-500">{item.studentName}</td>
       <td className="hidden md:table-cell text-gray-500">{item.score}</td>
       <td className="hidden md:table-cell text-gray-500">{item.type || ""}</td>
+      <td className="hidden md:table-cell text-gray-500">
+        {item.assessmentTitle}
+      </td>
       <td className="hidden md:table-cell text-gray-500">{item.className}</td>
       <td className="hidden md:table-cell text-gray-500">{item.teacherName}</td>
       <td className="hidden md:table-cell text-gray-500">
