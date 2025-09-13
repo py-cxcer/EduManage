@@ -12,7 +12,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const days = ["Mon", "Tue", "Wed", "Thu", "Sat", "Sun"];
 
 const AttendanceChart = () => {
   const [data, setData] = useState<any[]>([]);
@@ -32,46 +32,100 @@ const AttendanceChart = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        // Fetch today's attendance summary across lessons/classes
+        // Fetch attendance summary for the past 6 days (excluding Friday)
         const today = new Date();
-        const start = new Date(
-          today.getFullYear(),
-          today.getMonth(),
-          today.getDate()
-        );
-        const end = new Date(start);
-        end.setDate(start.getDate() + 7);
 
-        const base = Array.from({ length: 7 }).map((_, i) => ({
-          name: days[(start.getDay() + i) % 7],
-          present: 0,
-          absent: 0,
-        }));
+        // Create base array for 6 days (Mon, Tue, Wed, Thu, Sat, Sun)
+        const base: {
+          name: string;
+          present: number;
+          absent: number;
+          date: string;
+        }[] = [];
 
-        // Iterate each day and query a lightweight summary endpoint (reuse attendance GET per date)
-        for (let i = 0; i < 7; i++) {
-          const d = new Date(start);
-          d.setDate(start.getDate() + i);
-          const iso = d.toISOString().slice(0, 10);
-          const res = await fetch(
-            `/api/attendance?classId=1&lessonId=1&date=${iso}`
-          );
-          if (!res.ok) continue;
-          const json = await res.json();
-          // Approximate: treat array entries as present booleans if available; else keep zeros
-          const items = Array.isArray(json?.items) ? json.items : [];
-          let present = 0;
-          let absent = 0;
-          items.forEach((it: any) => {
-            if (it.present) present += 1;
-            else absent += 1;
+        // Get the last 7 days and filter out Friday
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(today);
+          d.setDate(today.getDate() - i);
+          const dayIndex = d.getDay();
+
+          // Skip Friday (index 5)
+          if (dayIndex === 5) continue;
+
+          let dayName;
+          if (dayIndex === 6) {
+            // Saturday
+            dayName = "Sat";
+          } else if (dayIndex === 0) {
+            // Sunday
+            dayName = "Sun";
+          } else {
+            dayName = days[dayIndex - 1]; // Mon, Tue, Wed, Thu
+          }
+
+          base.push({
+            name: dayName,
+            present: 0,
+            absent: 0,
+            date: d.toISOString().slice(0, 10),
           });
-          base[i].present = present;
-          base[i].absent = absent;
         }
 
-        setData(base);
+        // Get all classes and lessons to aggregate attendance data
+        const [classesRes, lessonsRes] = await Promise.all([
+          fetch("/api/classes?page=1&limit=1000"),
+          fetch("/api/lessons?page=1&limit=1000"),
+        ]);
+
+        const [classesJson, lessonsJson] = await Promise.all([
+          classesRes.json(),
+          lessonsRes.json(),
+        ]);
+
+        const classes = classesJson.classes || classesJson || [];
+        const lessons = lessonsJson.lessons || lessonsJson || [];
+
+        // Iterate each day and aggregate attendance across all class-lesson combinations
+        for (const dayData of base) {
+          let dayPresent = 0;
+          let dayAbsent = 0;
+
+          // For each class-lesson combination, fetch attendance data
+          for (const cls of classes) {
+            for (const lesson of lessons) {
+              // Check if this lesson is taught to this class
+              const lessonClasses = lesson.classes || [];
+              if (lessonClasses.some((lc: any) => lc.id === cls.id)) {
+                try {
+                  const res = await fetch(
+                    `/api/attendance?classId=${cls.id}&lessonId=${lesson.id}&date=${dayData.date}`
+                  );
+                  if (res.ok) {
+                    const json = await res.json();
+                    const items = Array.isArray(json?.items) ? json.items : [];
+                    items.forEach((it: any) => {
+                      if (it.present) dayPresent += 1;
+                      else dayAbsent += 1;
+                    });
+                  }
+                } catch (e) {
+                  // Skip failed requests
+                  continue;
+                }
+              }
+            }
+          }
+
+          // Update the day data
+          dayData.present = dayPresent;
+          dayData.absent = dayAbsent;
+        }
+
+        // Remove the date property before setting data
+        const chartData = base.map(({ date, ...rest }) => rest);
+        setData(chartData);
       } catch (e) {
+        console.error("Attendance chart load error:", e);
         // safe fallback
         setData([]);
       }
